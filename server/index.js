@@ -1177,13 +1177,13 @@ function startDockerProject(projectId, projectPath, dockerConfig) {
         args += ` ${image}`
         command = args
       }
-
+      
       const shell = isWindows ? 'cmd.exe' : '/bin/bash'
       const shellArgs = isWindows ? ['/c', command] : ['-c', command]
 
       const childProcess = spawn(shell, shellArgs, {
         cwd: projectPath,
-        shell: true,
+        shell: false,  // 改为 false
         env: { ...process.env }
       })
 
@@ -1287,7 +1287,7 @@ function startCustomProcess(projectId, projectPath, startCommand) {
 
       const childProcess = spawn(shell, shellArgs, {
         cwd: projectPath,
-        shell: true,
+        shell: false,  // 改为 false，因为已经手动指定了 shell
         env: { 
           ...process.env,
           PYTHONIOENCODING: 'utf-8'

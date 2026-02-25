@@ -57,6 +57,14 @@ function Projects({ toast, confirm }) {
       toast.warning('请填写项目名称')
       return
     }
+    
+    // 验证 Docker 项目配置
+    if (formData.type === 'docker') {
+      if (!formData.dockerConfig.dockerComposeFile && !formData.dockerConfig.image) {
+        toast.warning('Docker 项目需要填写镜像名称或 Compose 文件')
+        return
+      }
+    }
 
     setLoading(true)
     try {
@@ -402,12 +410,13 @@ function Projects({ toast, confirm }) {
                     <small>填写后将使用 Compose 模式，忽略下方镜像配置</small>
                   </div>
                   <div className="form-group">
-                    <label>镜像名称</label>
+                    <label>镜像名称 {!formData.dockerConfig.dockerComposeFile && <span style={{color: 'red'}}>*</span>}</label>
                     <input
                       type="text"
                       value={formData.dockerConfig.image}
                       onChange={(e) => setFormData({ ...formData, dockerConfig: { ...formData.dockerConfig, image: e.target.value } })}
                       placeholder="nginx:latest"
+                      required={!formData.dockerConfig.dockerComposeFile}
                     />
                   </div>
                   <div className="form-group">
