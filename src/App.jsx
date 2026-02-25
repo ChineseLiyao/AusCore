@@ -132,7 +132,10 @@ function App() {
         setIsAuthenticated(!!session)
         
         // 检查服务器是否有管理员账户
-        const response = await fetch(`${API_BASE}/api/auth/check`)
+        const controller = new AbortController()
+        const timeout = setTimeout(() => controller.abort(), 5000)
+        const response = await fetch(`${API_BASE}/api/auth/check`, { signal: controller.signal })
+        clearTimeout(timeout)
         const data = await response.json()
         setIsRegistered(data.hasAdmin)
       } catch (error) {
