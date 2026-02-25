@@ -184,63 +184,9 @@ build_frontend() {
     print_success "前端构建完成"
 }
 
-# 配置部署方式
-configure_deployment() {
-    echo ""
-    print_info "选择部署方式:"
-    echo "1) 仅后端 API（推荐，前端单独部署到 Nginx/CDN）"
-    echo "2) 后端 + 前端开发服务器（默认）"
-    echo "3) 仅后端 API（手动配置）"
-    
-    # 检测是否为交互式终端
-    if [ -t 0 ]; then
-        read -p "请选择 [1-3] (默认: 2): " -n 1 -r DEPLOY_MODE
-        echo ""
-    else
-        print_warning "非交互式终端，使用默认部署方式 2"
-        DEPLOY_MODE="2"
-    fi
-    
-    # 默认值
-    DEPLOY_MODE=${DEPLOY_MODE:-2}
-    
-    case $DEPLOY_MODE in
-        1)
-            deploy_api_only
-            ;;
-        2)
-            deploy_with_dev_server
-            ;;
-        3)
-            deploy_api_manual
-            ;;
-        *)
-            print_warning "无效选择，使用默认方式 2"
-            deploy_with_dev_server
-            ;;
-    esac
-}
-
-# 部署方式 1: 仅后端 API
-deploy_api_only() {
-    print_info "配置后端 API 服务..."
-    
-    cd "$INSTALL_DIR/server"
-    pm2 delete auscore-api 2>/dev/null || true
-    pm2 start index.js --name auscore-api
-    pm2 save
-    
-    # 设置开机自启
-    pm2 startup | tail -n 1 | bash
-    
-    print_success "后端 API 已启动在端口 13338"
-    print_info "后端构建文件位于: $INSTALL_DIR/dist"
-    print_warning "请手动配置 Nginx 托管前端静态文件"
-}
-
-# 部署方式 2: 后端 + 前端开发服务器
-deploy_with_dev_server() {
-    print_warning "此模式仅用于测试，不推荐生产环境使用"
+# 部署服务
+deploy_services() {
+    print_info "部署前后端服务..."
     
     cd "$INSTALL_DIR/server"
     pm2 delete auscore-api 2>/dev/null || true
@@ -251,22 +197,11 @@ deploy_with_dev_server() {
     pm2 start npm --name auscore-frontend -- run dev -- --host 0.0.0.0
     
     pm2 save
-    pm2 startup | tail -n 1 | bash
     
-    print_success "后端 API 已启动在端口 13338"
-    print_success "前端开发服务器已启动在端口 13337"
-}
-
-# 部署方式 3: 仅后端（手动）
-deploy_api_manual() {
-    print_info "后端 API 已准备就绪"
-    print_info "手动启动命令:"
-    echo ""
-    echo "  cd $INSTALL_DIR/server"
-    echo "  pm2 start index.js --name auscore-api"
-    echo "  pm2 save"
-    echo ""
-    print_info "前端构建文件位于: $INSTALL_DIR/dist"
+    # 设置开机自启
+    env PATH=$PATH:/usr/bin pm2 startup systemd -u root --hp /root | tail -n 1 | bash
+    
+    print_success "服务部署完成"
 }
 
 # 配置防火墙
@@ -274,20 +209,16 @@ configure_firewall() {
     print_info "配置防火墙..."
     
     if command -v ufw &> /dev/null; then
-        ufw allow 13338/tcp comment "AusCore API"
-        if [ "$DEPLOY_MODE" == "2" ]; then
-            ufw allow 13337/tcp comment "AusCore Frontend Dev"
-        fi
+        ufw allow 13337/tcp comment "AusCore Frontend" 2>/dev/null || true
+        ufw allow 13338/tcp comment "AusCore API" 2>/dev/null || true
         print_success "UFW 防火墙规则已添加"
     elif command -v firewall-cmd &> /dev/null; then
-        firewall-cmd --permanent --add-port=13338/tcp
-        if [ "$DEPLOY_MODE" == "2" ]; then
-            firewall-cmd --permanent --add-port=13337/tcp
-        fi
-        firewall-cmd --reload
+        firewall-cmd --permanent --add-port=13337/tcp 2>/dev/null || true
+        firewall-cmd --permanent --add-port=13338/tcp 2>/dev/null || true
+        firewall-cmd --reload 2>/dev/null || true
         print_success "Firewalld 防火墙规则已添加"
     else
-        print_warning "未检测到防火墙，请手动开放端口 13338"
+        print_warning "未检测到防火墙，请手动开放端口 13337 和 13338"
     fi
 }
 
@@ -299,37 +230,18 @@ show_completion() {
     echo "=========================================="
     echo ""
     
-    case $DEPLOY_MODE in
-        1)
-            print_info "后端 API: http://$(hostname -I | awk '{print $1}'):13338"
-            print_info "前端文件: $INSTALL_DIR/dist"
-            echo ""
-            print_warning "下一步: 配置 Nginx 托管前端"
-            print_info "参考文档: $INSTALL_DIR/DEPLOY.md"
-            ;;
-        2)
-            print_info "前端地址: http://$(hostname -I | awk '{print $1}'):13337"
-            print_info "后端 API: http://$(hostname -I | awk '{print $1}'):13338"
-            ;;
-        3)
-            print_info "后端 API 已准备就绪"
-            print_info "前端文件: $INSTALL_DIR/dist"
-            ;;
-    esac
-    
+    print_info "访问地址: http://$(hostname -I | awk '{print $1}'):13337"
+    print_info "后端 API: http://$(hostname -I | awk '{print $1}'):13338"
     echo ""
+    
     print_info "常用命令:"
-    echo "  pm2 list              # 查看进程状态"
-    echo "  pm2 logs auscore-api  # 查看后端日志"
-    echo "  pm2 restart auscore-api  # 重启后端"
-    echo "  pm2 stop auscore-api     # 停止后端"
+    echo "  pm2 list                      # 查看进程状态"
+    echo "  pm2 logs auscore-api          # 查看后端日志"
+    echo "  pm2 logs auscore-frontend     # 查看前端日志"
+    echo "  pm2 restart auscore-api       # 重启后端"
+    echo "  pm2 restart auscore-frontend  # 重启前端"
+    echo "  pm2 stop all                  # 停止所有服务"
     echo ""
-    
-    if [ "$DEPLOY_MODE" == "2" ]; then
-        echo "  pm2 logs auscore-frontend  # 查看前端日志"
-        echo "  pm2 restart auscore-frontend  # 重启前端"
-        echo ""
-    fi
     
     print_info "详细文档: https://github.com/ChineseLiyao/AusCore"
     echo ""
@@ -351,7 +263,7 @@ main() {
     clone_project
     install_dependencies
     build_frontend
-    configure_deployment
+    deploy_services
     configure_firewall
     show_completion
 }
