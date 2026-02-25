@@ -80,9 +80,9 @@ curl -fsSL https://raw.githubusercontent.com/ChineseLiyao/AusCore/main/install.s
 2. 安装 Node.js 20 和 Git（如未安装）
 3. 克隆项目到 `/opt/auscore`
 4. 安装依赖并构建前端
-5. 创建系统服务（systemd / launchd）并自动启动
+5. 使用 PM2 启动前后端服务
 
-安装完成后访问 `http://服务器IP:13338` 即可使用。
+安装完成后访问 `http://服务器IP:13337` 即可使用。
 
 ---
 
@@ -111,11 +111,32 @@ npm run build
 cd server
 npm install
 
-# 4. 启动服务
+# 4. 启动后端
 node index.js
 ```
 
-服务默认运行在 `http://服务器IP:13338`，首次访问会引导注册管理员账户。
+后端默认运行在 `http://服务器IP:13338`。
+
+**推荐使用 PM2 同时运行前后端：**
+
+```bash
+# 安装 PM2
+npm install -g pm2
+
+# 启动后端
+cd AusCore/server
+pm2 start index.js --name auscore-api
+
+# 启动前端开发服务器
+cd ..
+pm2 start npm --name auscore-frontend -- run dev -- --host 0.0.0.0
+
+# 保存配置
+pm2 save
+pm2 startup
+```
+
+访问 `http://服务器IP:13337`，首次访问会引导注册管理员账户。
 
 ---
 
@@ -188,30 +209,51 @@ npm install
 npm run dev
 ```
 
-前端开发服务器：http://localhost:13337  
+前端服务器：http://localhost:13337  
 后端 API 服务器：http://localhost:13338
-
-详细部署文档见 [DEPLOY.md](DEPLOY.md)
 
 ---
 
 ## 服务管理
 
-### Linux (systemd)
+### PM2（推荐）
 
 ```bash
-sudo systemctl start auscore     # 启动
-sudo systemctl stop auscore      # 停止
-sudo systemctl restart auscore   # 重启
-sudo systemctl status auscore    # 状态
-sudo journalctl -u auscore -f    # 查看日志
+pm2 list                      # 查看所有服务
+pm2 logs auscore-api          # 查看后端日志
+pm2 logs auscore-frontend     # 查看前端日志
+pm2 restart auscore-api       # 重启后端
+pm2 restart auscore-frontend  # 重启前端
+pm2 stop all                  # 停止所有服务
+pm2 delete all                # 删除所有服务
 ```
 
-### macOS (launchd)
+### Linux (systemd)
+
+如需使用 systemd 管理后端服务，创建 `/etc/systemd/system/auscore.service`：
+
+```ini
+[Unit]
+Description=AusCore API Server
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/auscore/server
+ExecStart=/usr/bin/node index.js
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
+```
+
+然后启用：
 
 ```bash
-launchctl start com.auscore.server
-launchctl stop com.auscore.server
+sudo systemctl daemon-reload
+sudo systemctl enable auscore
+sudo systemctl start auscore
 ```
 
 ---

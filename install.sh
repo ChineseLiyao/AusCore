@@ -137,12 +137,21 @@ clone_project() {
     
     if [ -d "$INSTALL_DIR" ]; then
         print_warning "目录 $INSTALL_DIR 已存在"
-        read -p "是否删除并重新安装? (y/N): " -n 1 -r
-        echo
-        if [[ $REPLY =~ ^[Yy]$ ]]; then
-            rm -rf "$INSTALL_DIR"
+        
+        # 检测是否为交互式终端
+        if [ -t 0 ]; then
+            read -p "是否删除并重新安装? (y/N): " -n 1 -r
+            echo
+            if [[ $REPLY =~ ^[Yy]$ ]]; then
+                rm -rf "$INSTALL_DIR"
+            else
+                print_info "使用现有目录并更新代码"
+                cd "$INSTALL_DIR"
+                git pull
+                return
+            fi
         else
-            print_info "使用现有目录"
+            print_info "非交互式终端，使用现有目录并更新代码"
             cd "$INSTALL_DIR"
             git pull
             return
@@ -180,10 +189,20 @@ configure_deployment() {
     echo ""
     print_info "选择部署方式:"
     echo "1) 仅后端 API（推荐，前端单独部署到 Nginx/CDN）"
-    echo "2) 后端 + 前端开发服务器（仅用于测试）"
+    echo "2) 后端 + 前端开发服务器（默认）"
     echo "3) 仅后端 API（手动配置）"
-    read -p "请选择 [1-3]: " -n 1 -r DEPLOY_MODE
-    echo ""
+    
+    # 检测是否为交互式终端
+    if [ -t 0 ]; then
+        read -p "请选择 [1-3] (默认: 2): " -n 1 -r DEPLOY_MODE
+        echo ""
+    else
+        print_warning "非交互式终端，使用默认部署方式 2"
+        DEPLOY_MODE="2"
+    fi
+    
+    # 默认值
+    DEPLOY_MODE=${DEPLOY_MODE:-2}
     
     case $DEPLOY_MODE in
         1)
@@ -196,8 +215,8 @@ configure_deployment() {
             deploy_api_manual
             ;;
         *)
-            print_error "无效选择"
-            exit 1
+            print_warning "无效选择，使用默认方式 2"
+            deploy_with_dev_server
             ;;
     esac
 }
@@ -215,9 +234,8 @@ deploy_api_only() {
     pm2 startup | tail -n 1 | bash
     
     print_success "后端 API 已启动在端口 13338"
-    print_info "前端构建文件位于: $INSTALL_DIR/dist"
+    print_info "后端构建文件位于: $INSTALL_DIR/dist"
     print_warning "请手动配置 Nginx 托管前端静态文件"
-    print_info "参考配置见: $INSTALL_DIR/DEPLOY.md"
 }
 
 # 部署方式 2: 后端 + 前端开发服务器
@@ -313,7 +331,7 @@ show_completion() {
         echo ""
     fi
     
-    print_info "详细文档: $INSTALL_DIR/DEPLOY.md"
+    print_info "详细文档: https://github.com/ChineseLiyao/AusCore"
     echo ""
 }
 
