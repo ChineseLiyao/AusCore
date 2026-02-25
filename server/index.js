@@ -7,7 +7,7 @@ import { exec, spawn } from 'child_process'
 import { promisify } from 'util'
 import { createServer } from 'http'
 import { WebSocketServer } from 'ws'
-import serveStatic from 'serve-static'
+import serveStatic from 'serve-static'  // 用于项目静态服务器
 import bcrypt from 'bcrypt'
 import multer from 'multer'
 import archiver from 'archiver'
@@ -65,15 +65,6 @@ const wss = new WebSocketServer({ server: httpServer })
 
 app.use(cors())
 app.use(express.json())
-
-// 生产环境下 serve 前端构建产物
-import { fileURLToPath } from 'url'
-const __filename = fileURLToPath(import.meta.url)
-const __dirname = path.dirname(__filename)
-const distPath = path.join(__dirname, '..', 'dist')
-if (fs.existsSync(distPath)) {
-  app.use(serveStatic(distPath, { index: ['index.html'] }))
-}
 
 let networkHistory = { rx: 0, tx: 0, timestamp: Date.now() }
 let diskHistory = { read: 0, write: 0, timestamp: Date.now() }
@@ -327,21 +318,9 @@ app.get('/api/metrics', async (req, res) => {
   }
 })
 
-// SPA fallback - 非 API 请求返回 index.html
-if (fs.existsSync(distPath)) {
-  app.get('*', (req, res) => {
-    if (!req.path.startsWith('/api/')) {
-      res.sendFile(path.join(distPath, 'index.html'))
-    }
-  })
-}
-
 httpServer.listen(PORT, () => {
-  console.log(`AusCore server running on http://localhost:${PORT}`)
+  console.log(`AusCore API server running on http://localhost:${PORT}`)
   console.log(`WebSocket server running on ws://localhost:${PORT}`)
-  if (fs.existsSync(distPath)) {
-    console.log(`Serving frontend from ${distPath}`)
-  }
 })
 
 // 服务器终端进程

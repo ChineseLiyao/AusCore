@@ -175,15 +175,23 @@ auscore/
 
 ## 开发指南
 
-```bash
-# 前端开发服务器 (端口 13337)
-npm run dev
+**前后端分离开发：**
 
-# 后端开发服务器 (端口 13338，自动重启)
-npm run server:dev
+```bash
+# 后端（端口 13338）
+cd server
+npm install
+npm start
+
+# 前端（端口 13337）
+npm install
+npm run dev
 ```
 
-前端开发服务器运行在 `http://localhost:13337`，API 请求指向 `http://localhost:13338`。
+前端开发服务器：http://localhost:13337  
+后端 API 服务器：http://localhost:13338
+
+详细部署文档见 [DEPLOY.md](DEPLOY.md)
 
 ---
 
