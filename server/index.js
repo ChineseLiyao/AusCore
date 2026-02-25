@@ -535,30 +535,35 @@ app.get('/api/files', async (req, res) => {
     }
 
     const items = await fs.promises.readdir(fullPath, { withFileTypes: true })
-    const files = await Promise.all(
-      items.map(async (item) => {
-        try {
-          const itemPath = path.join(fullPath, item.name)
-          const stats = await fs.promises.stat(itemPath)
-          return {
-            name: item.name,
-            type: item.isDirectory() ? 'directory' : 'file',
-            size: stats.size,
-            modified: stats.mtime
+    
+    // 限制并发 stat 调用数量，避免文件太多时卡死
+    const BATCH_SIZE = 50
+    const files = []
+    
+    for (let i = 0; i < items.length; i += BATCH_SIZE) {
+      const batch = items.slice(i, i + BATCH_SIZE)
+      const batchResults = await Promise.all(
+        batch.map(async (item) => {
+          try {
+            const itemPath = path.join(fullPath, item.name)
+            const stats = await fs.promises.stat(itemPath)
+            return {
+              name: item.name,
+              type: item.isDirectory() ? 'directory' : 'file',
+              size: stats.size,
+              modified: stats.mtime
+            }
+          } catch (err) {
+            console.warn(`Cannot access file: ${item.name}`, err.code)
+            return null
           }
-        } catch (err) {
-          // 跳过无法访问的文件（可能正在被使用）
-          console.warn(`Cannot access file: ${item.name}`, err.code)
-          return null
-        }
-      })
-    )
-
-    // 过滤掉 null 值（无法访问的文件）
-    const validFiles = files.filter(f => f !== null)
+        })
+      )
+      files.push(...batchResults.filter(f => f !== null))
+    }
 
     res.json({
-      files: validFiles.sort((a, b) => {
+      files: files.sort((a, b) => {
         if (a.type === b.type) return a.name.localeCompare(b.name)
         return a.type === 'directory' ? -1 : 1
       })

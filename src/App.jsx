@@ -31,10 +31,30 @@ function MainLayout({ onLogout }) {
   })
   const [errorMsg, setErrorMsg] = useState(null)
   const intervalRef = useRef(null)
+  const fetchingRef = useRef(false)
+  const abortControllerRef = useRef(null)
 
   const fetchMetrics = async () => {
+    // 如果上一个请求还在进行中，跳过
+    if (fetchingRef.current) {
+      console.log('Skipping metrics fetch - previous request still pending')
+      return
+    }
+
+    fetchingRef.current = true
+    
+    // 取消之前的请求
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort()
+    }
+    
+    abortControllerRef.current = new AbortController()
+    
     try {
-      const response = await fetch(API_URL)
+      const response = await fetch(API_URL, {
+        signal: abortControllerRef.current.signal,
+        timeout: 3000
+      })
       if (!response.ok) throw new Error('Failed to fetch metrics')
       
       const data = await response.json()
@@ -70,17 +90,24 @@ function MainLayout({ onLogout }) {
       }))
       setErrorMsg(null)
     } catch (err) {
-      setErrorMsg('无法连接到服务器，请确保后端服务已启动')
-      console.error('Error fetching metrics:', err)
+      if (err.name !== 'AbortError') {
+        setErrorMsg('无法连接到服务器，请确保后端服务已启动')
+        console.error('Error fetching metrics:', err)
+      }
+    } finally {
+      fetchingRef.current = false
     }
   }
 
   useEffect(() => {
     fetchMetrics()
-    intervalRef.current = setInterval(fetchMetrics, 2000)
+    intervalRef.current = setInterval(fetchMetrics, 3000) // 改成 3 秒
     return () => {
       if (intervalRef.current) {
         clearInterval(intervalRef.current)
+      }
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort()
       }
     }
   }, [])

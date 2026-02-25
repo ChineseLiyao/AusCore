@@ -38,9 +38,13 @@ function DownloadManager() {
   const [balloons, setBalloons] = useState([])
   const prevTasksRef = useRef(new Map())
   const pollRef = useRef(null)
+  const fetchingRef = useRef(false)
 
   useEffect(() => {
     const poll = async () => {
+      if (fetchingRef.current) return
+      fetchingRef.current = true
+      
       try {
         const res = await fetch(`${API_BASE}/api/downloads`)
         if (res.ok) {
@@ -73,10 +77,12 @@ function DownloadManager() {
             setTimeout(() => { setVisible(false); setFadeOut(false); setExpanded(false) }, 4000)
           }
         }
-      } catch { /* ignore */ }
+      } catch { /* ignore */ } finally {
+        fetchingRef.current = false
+      }
     }
 
-    pollRef.current = setInterval(poll, 800)
+    pollRef.current = setInterval(poll, 2000) // 改成 2 秒
     return () => clearInterval(pollRef.current)
   }, [])
 

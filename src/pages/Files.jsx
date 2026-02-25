@@ -83,12 +83,23 @@ function Files({ toast, confirm }) {
     setLoading(true)
     setError(null)
     try {
-      const response = await fetch(`${API_BASE}/api/files?path=${encodeURIComponent(path)}`)
+      const controller = new AbortController()
+      const timeout = setTimeout(() => controller.abort(), 5000)
+      
+      const response = await fetch(`${API_BASE}/api/files?path=${encodeURIComponent(path)}`, {
+        signal: controller.signal
+      })
+      clearTimeout(timeout)
+      
       if (!response.ok) throw new Error('Failed to fetch files')
       const data = await response.json()
       setFiles(data.files)
     } catch (err) {
-      setError('无法加载文件列表')
+      if (err.name === 'AbortError') {
+        setError('请求超时，请检查服务器状态')
+      } else {
+        setError('无法加载文件列表')
+      }
       console.error(err)
     } finally {
       setLoading(false)

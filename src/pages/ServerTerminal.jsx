@@ -56,8 +56,14 @@ function ServerTerminal() {
     wsRef.current = ws
 
     let commandBuffer = ''
+    let connectionTimeout = setTimeout(() => {
+      if (ws.readyState !== WebSocket.OPEN) {
+        term.writeln('\r\n\x1b[31mConnection timeout - please check server status\x1b[0m')
+      }
+    }, 5000)
 
     ws.onopen = () => {
+      clearTimeout(connectionTimeout)
       term.writeln('Connected to server terminal')
       term.writeln('')
     }
