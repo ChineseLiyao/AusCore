@@ -350,11 +350,13 @@ wss.on('connection', async (ws, req) => {
         }
       } else {
         shell = '/bin/bash'
-        shellArgs = []
+        shellArgs = ['-i']  // 交互式模式
         spawnEnv = {
           ...process.env,
           PYTHONIOENCODING: 'utf-8',
-          LANG: 'en_US.UTF-8'
+          LANG: 'en_US.UTF-8',
+          TERM: 'xterm-256color',
+          PS1: '\\u@\\h:\\w\\$ '  // 设置提示符格式
         }
       }
       

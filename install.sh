@@ -199,7 +199,7 @@ deploy_services() {
     pm2 save
     
     # 设置开机自启
-    env PATH=$PATH:/usr/bin pm2 startup systemd -u root --hp /root | tail -n 1 | bash
+    env PATH=$PATH:/usr/bin /usr/local/bin/pm2 startup systemd -u root --hp /root 2>/dev/null || true
     
     print_success "服务部署完成"
 }

@@ -522,7 +522,19 @@ function ProjectDetail({ toast }) {
               </div>
               <div className="info-row">
                 <span className="label">端口:</span>
-                <span>{project.port || '未设置'}</span>
+                <span>
+                  {project.port || '未设置'}
+                  {project.port && project.type === 'static' && project.status === 'running' && (
+                    <a 
+                      href={`http://${window.location.hostname}:${project.port}`} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      style={{ marginLeft: '10px', color: '#4a90e2' }}
+                    >
+                      访问
+                    </a>
+                  )}
+                </span>
               </div>
               <div className="info-row">
                 <span className="label">状态:</span>
