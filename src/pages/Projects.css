@@ -1,0 +1,442 @@
+.projects-page {
+  padding: 24px;
+  height: 100%;
+}
+
+.projects-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
+}
+
+.projects-title {
+  font-size: 28px;
+  font-weight: 600;
+  color: hsl(208, 40%, 35%);
+}
+
+.projects-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.btn-new,
+.btn-sort,
+.btn-view {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background: white;
+  border: 1px solid hsl(0, 0%, 85%);
+  border-radius: 4px;
+  font-size: 14px;
+  color: hsl(272, 15%, 42%);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-new {
+  background: hsl(208, 40%, 35%);
+  color: white;
+  border-color: hsl(208, 40%, 35%);
+}
+
+.btn-new:hover {
+  background: hsl(208, 40%, 30%);
+}
+
+.btn-sort:hover,
+.btn-view:hover {
+  border-color: hsl(208, 40%, 35%);
+  color: hsl(208, 40%, 35%);
+}
+
+.view-toggle {
+  display: flex;
+  gap: 0;
+}
+
+.view-toggle .btn-view {
+  border-radius: 0;
+}
+
+.view-toggle .btn-view:first-child {
+  border-radius: 4px 0 0 4px;
+}
+
+.view-toggle .btn-view:last-child {
+  border-radius: 0 4px 4px 0;
+  border-left: none;
+}
+
+.view-toggle .btn-view.active {
+  background: hsl(208, 40%, 95%);
+  color: hsl(208, 40%, 35%);
+  border-color: hsl(208, 40%, 35%);
+}
+
+.projects-content {
+  background: transparent;
+  border-radius: 0;
+  padding: 0;
+  min-height: 400px;
+}
+
+.projects-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  width: 100%;
+  background: white;
+}
+
+.project-card {
+  background: white;
+  border: none;
+  border-bottom: 1px solid hsl(0, 0%, 90%);
+  border-radius: 0;
+  padding: 20px 24px;
+  transition: all 0.2s;
+  cursor: move;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  width: 100%;
+}
+
+.project-card:first-child {
+  border-top: 1px solid hsl(0, 0%, 90%);
+}
+
+.project-card:hover {
+  background: hsl(0, 0%, 98%);
+  border-left: 3px solid hsl(208, 40%, 35%);
+  padding-left: 21px;
+}
+
+.empty-state {
+  text-align: center;
+  color: hsl(272, 15%, 60%);
+  font-size: 16px;
+}
+
+.empty-hint {
+  margin-top: 8px;
+  font-size: 14px;
+  color: hsl(272, 15%, 70%);
+}
+
+.projects-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  width: 100%;
+  background: white;
+}
+
+.project-card.dragging {
+  opacity: 0.5;
+}
+
+.project-icon {
+  width: 56px;
+  height: 56px;
+  background: hsl(208, 40%, 95%);
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: hsl(208, 40%, 35%);
+  flex-shrink: 0;
+}
+
+.project-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.project-name {
+  font-size: 18px;
+  font-weight: 600;
+  color: hsl(208, 40%, 35%);
+  margin-bottom: 4px;
+}
+
+.project-meta {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  font-size: 14px;
+  color: hsl(272, 15%, 60%);
+}
+
+.project-type {
+  font-size: 14px;
+  color: hsl(272, 15%, 60%);
+}
+
+.project-port {
+  font-size: 14px;
+  color: hsl(272, 15%, 70%);
+}
+
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background: white;
+  border-radius: 4px;
+  width: 90%;
+  max-width: 500px;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px;
+  border-bottom: 1px solid hsl(0, 0%, 90%);
+}
+
+.modal-header h2 {
+  font-size: 20px;
+  font-weight: 600;
+  color: hsl(208, 40%, 35%);
+}
+
+.btn-close-modal {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: hsl(272, 15%, 60%);
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.2s;
+}
+
+.btn-close-modal:hover {
+  color: hsl(354, 88%, 71%);
+}
+
+.modal-body {
+  padding: 24px;
+}
+
+.modal-body .form-group {
+  margin-bottom: 20px;
+}
+
+.modal-body .form-group:last-child {
+  margin-bottom: 0;
+}
+
+.modal-body label {
+  display: block;
+  font-size: 14px;
+  font-weight: 500;
+  color: hsl(272, 15%, 42%);
+  margin-bottom: 8px;
+}
+
+.modal-body input,
+.modal-body select {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid hsl(0, 0%, 85%);
+  border-radius: 4px;
+  font-size: 14px;
+  transition: border-color 0.2s;
+}
+
+.modal-body input:focus,
+.modal-body select:focus {
+  outline: none;
+  border-color: hsl(208, 40%, 35%);
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 16px 24px;
+  border-top: 1px solid hsl(0, 0%, 90%);
+}
+
+.btn-cancel,
+.btn-create {
+  padding: 10px 20px;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.btn-cancel {
+  background: white;
+  border: 1px solid hsl(0, 0%, 85%);
+  color: hsl(272, 15%, 42%);
+}
+
+.btn-cancel:hover {
+  border-color: hsl(272, 15%, 42%);
+}
+
+.btn-create {
+  background: hsl(208, 40%, 35%);
+  border: none;
+  color: white;
+}
+
+.btn-create:hover {
+  background: hsl(208, 40%, 30%);
+}
+
+
+.project-status {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.project-status.running {
+  background: hsl(120, 60%, 95%);
+  color: hsl(120, 60%, 35%);
+}
+
+.project-status.stopped {
+  background: hsl(0, 0%, 90%);
+  color: hsl(272, 15%, 60%);
+}
+
+.project-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.btn-action {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border: 1px solid hsl(0, 0%, 85%);
+  border-radius: 4px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: white;
+  color: hsl(272, 15%, 42%);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.btn-action:hover:not(:disabled) {
+  border-color: hsl(208, 40%, 35%);
+  color: hsl(208, 40%, 35%);
+}
+
+.btn-action:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-start:hover:not(:disabled) {
+  border-color: hsl(120, 60%, 35%);
+  color: hsl(120, 60%, 35%);
+  background: hsl(120, 60%, 98%);
+}
+
+.btn-stop:hover:not(:disabled) {
+  border-color: hsl(40, 90%, 45%);
+  color: hsl(40, 90%, 45%);
+  background: hsl(40, 90%, 98%);
+}
+
+.btn-delete {
+  flex: 0;
+  padding: 8px;
+}
+
+.btn-delete:hover:not(:disabled) {
+  border-color: hsl(354, 88%, 71%);
+  color: hsl(354, 88%, 71%);
+  background: hsl(354, 88%, 98%);
+}
+
+.btn-open {
+  background: hsl(208, 40%, 35%);
+  color: white;
+  border-color: hsl(208, 40%, 35%);
+}
+
+.btn-open:hover {
+  background: hsl(208, 40%, 30%);
+}
+
+
+.drag-handle {
+  cursor: move;
+  display: flex;
+  align-items: center;
+  padding: 4px;
+  opacity: 0.5;
+  transition: opacity 0.2s;
+}
+
+.project-card:hover .drag-handle {
+  opacity: 1;
+}
+
+
+.btn-folder {
+  flex: 0;
+  padding: 8px;
+}
+
+.btn-folder:hover:not(:disabled) {
+  border-color: hsl(208, 40%, 35%);
+  color: hsl(208, 40%, 35%);
+  background: hsl(208, 40%, 98%);
+}
+
+.btn-settings {
+  flex: 0;
+  padding: 8px;
+}
+
+.btn-settings:hover:not(:disabled) {
+  border-color: hsl(272, 15%, 42%);
+  color: hsl(272, 15%, 42%);
+  background: hsl(272, 15%, 98%);
+}
+
+.modal-body small {
+  display: block;
+  margin-top: 4px;
+  font-size: 12px;
+  color: hsl(272, 15%, 60%);
+}

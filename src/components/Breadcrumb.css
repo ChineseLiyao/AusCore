@@ -1,0 +1,42 @@
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  padding: 10px 24px;
+  background: white;
+  border-bottom: 1px solid hsl(0, 0%, 90%);
+  font-size: 13px;
+  min-height: 20px;
+}
+
+.breadcrumb-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.breadcrumb-separator {
+  color: hsl(0, 0%, 70%);
+  flex-shrink: 0;
+}
+
+.breadcrumb-link {
+  background: none;
+  border: none;
+  padding: 2px 4px;
+  border-radius: 4px;
+  color: hsl(0, 0%, 50%);
+  cursor: pointer;
+  font-size: 13px;
+  transition: background 0.15s, color 0.15s;
+}
+
+.breadcrumb-link:hover {
+  background: hsl(0, 0%, 95%);
+  color: hsl(0, 0%, 25%);
+}
+
+.breadcrumb-current {
+  color: hsl(0, 0%, 40%);
+  font-weight: 500;
+  padding: 2px 4px;
+}

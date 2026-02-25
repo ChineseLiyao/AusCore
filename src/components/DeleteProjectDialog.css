@@ -1,0 +1,124 @@
+.delete-dialog {
+  background: white;
+  border-radius: 8px;
+  width: 90%;
+  max-width: 450px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+}
+
+.delete-dialog-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 20px 24px;
+  border-bottom: 1px solid hsl(0, 0%, 90%);
+}
+
+.delete-dialog-header h2 {
+  font-size: 18px;
+  font-weight: 600;
+  color: hsl(272, 15%, 20%);
+  margin: 0;
+}
+
+.delete-dialog-body {
+  padding: 24px;
+}
+
+.delete-dialog-body p {
+  margin: 0 0 20px 0;
+  color: hsl(272, 15%, 42%);
+  line-height: 1.5;
+}
+
+.delete-dialog-body strong {
+  color: hsl(272, 15%, 20%);
+}
+
+.delete-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px;
+  background: hsl(0, 0%, 98%);
+  border: 1px solid hsl(0, 0%, 90%);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.delete-option:hover {
+  background: hsl(0, 0%, 96%);
+}
+
+.delete-option input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+}
+
+.delete-option span {
+  font-size: 14px;
+  color: hsl(272, 15%, 42%);
+  user-select: none;
+}
+
+.warning-text {
+  margin-top: 16px !important;
+  padding: 12px;
+  background: hsl(0, 84%, 98%);
+  border-left: 3px solid hsl(0, 84%, 60%);
+  color: hsl(0, 84%, 40%);
+  font-size: 13px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.warning-text svg {
+  flex-shrink: 0;
+}
+
+.warning-text span {
+  flex: 1;
+}
+
+.delete-dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 16px 24px;
+  border-top: 1px solid hsl(0, 0%, 90%);
+}
+
+.btn-cancel,
+.btn-delete-confirm {
+  padding: 10px 20px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.btn-cancel {
+  background: white;
+  border: 1px solid hsl(0, 0%, 85%);
+  color: hsl(272, 15%, 42%);
+}
+
+.btn-cancel:hover {
+  border-color: hsl(272, 15%, 42%);
+}
+
+.btn-delete-confirm {
+  background: hsl(0, 84%, 60%);
+  border: none;
+  color: white;
+}
+
+.btn-delete-confirm:hover {
+  background: hsl(0, 84%, 55%);
+}
