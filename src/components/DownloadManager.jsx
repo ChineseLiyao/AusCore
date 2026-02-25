@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import './DownloadManager.css'
+import { API_BASE } from '../config'
 
 const DownloadIcon = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -41,13 +42,13 @@ function DownloadManager() {
   useEffect(() => {
     const poll = async () => {
       try {
-        const res = await fetch('http://localhost:13338/api/downloads')
+        const res = await fetch(`${API_BASE}/api/downloads`)
         if (res.ok) {
           const data = await res.json()
           const newTasks = data.tasks || []
           setTasks(newTasks)
 
-          // 检测新完成的任�?
+          // 检测新完成的任�?
           const prevMap = prevTasksRef.current
           newTasks.forEach(t => {
             const prev = prevMap.get(t.id)
@@ -67,7 +68,7 @@ function DownloadManager() {
             setFadeOut(false)
           }
           if (!hasActive && newTasks.length > 0 && newTasks.every(t => t.status === 'done' || t.status === 'error')) {
-            // 全部完成�?秒后渐隐
+            // 全部完成�?秒后渐隐
             setTimeout(() => setFadeOut(true), 3000)
             setTimeout(() => { setVisible(false); setFadeOut(false); setExpanded(false) }, 4000)
           }

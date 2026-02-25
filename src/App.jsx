@@ -14,8 +14,9 @@ import ConfirmDialog from './components/ConfirmDialog'
 import DownloadManager from './components/DownloadManager'
 import { useToast } from './hooks/useToast'
 import { useConfirm } from './hooks/useConfirm'
+import { API_BASE } from './config'
 
-const API_URL = 'http://localhost:13338/api/metrics'
+const API_URL = `${API_BASE}/api/metrics`
 
 function MainLayout({ onLogout }) {
   const { toasts, removeToast, success, error: showError, warning } = useToast()
@@ -131,7 +132,7 @@ function App() {
         setIsAuthenticated(!!session)
         
         // 检查服务器是否有管理员账户
-        const response = await fetch('http://localhost:13338/api/auth/check')
+        const response = await fetch(`${API_BASE}/api/auth/check`)
         const data = await response.json()
         setIsRegistered(data.hasAdmin)
       } catch (error) {

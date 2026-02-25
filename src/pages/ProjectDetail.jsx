@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Settings, FolderOpen, Play, Square, Save, X, Package, Puzzle, Zap, Search, Download, Filter } from 'lucide-react'
 import Terminal from '../components/Terminal'
 import './ProjectDetail.css'
+import { API_BASE } from '../config'
 
 function ProjectDetail({ toast }) {
   const { id } = useParams()
@@ -53,7 +54,7 @@ function ProjectDetail({ toast }) {
 
   const fetchProject = async () => {
     try {
-      const response = await fetch(`http://localhost:13338/api/projects/${id}`)
+      const response = await fetch(`${API_BASE}/api/projects/${id}`)
       if (!response.ok) throw new Error('Failed to fetch project')
       const data = await response.json()
       setProject(data.project)
@@ -66,7 +67,7 @@ function ProjectDetail({ toast }) {
 
       // 环境检测
       try {
-        const envRes = await fetch(`http://localhost:13338/api/env-check/${data.project.type}?command=${encodeURIComponent(data.project.startCommand || '')}`)
+        const envRes = await fetch(`${API_BASE}/api/env-check/${data.project.type}?command=${encodeURIComponent(data.project.startCommand || '')}`)
         if (envRes.ok) {
           const envData = await envRes.json()
           setEnvWarnings(envData.issues || [])
@@ -81,7 +82,7 @@ function ProjectDetail({ toast }) {
   const handleProcessExit = useCallback(async () => {
     // 只更新项目状态，不重新渲染整个组件
     try {
-      const response = await fetch(`http://localhost:13338/api/projects/${id}`)
+      const response = await fetch(`${API_BASE}/api/projects/${id}`)
       if (response.ok) {
         const data = await response.json()
         setProject(prev => ({ ...prev, status: data.project.status }))
@@ -95,7 +96,7 @@ function ProjectDetail({ toast }) {
   const handleStart = async () => {
     setLoading(true)
     try {
-      const response = await fetch(`http://localhost:13338/api/projects/${id}/start`, {
+      const response = await fetch(`${API_BASE}/api/projects/${id}/start`, {
         method: 'POST'
       })
       if (!response.ok) {
@@ -114,7 +115,7 @@ function ProjectDetail({ toast }) {
   const handleStop = async () => {
     setLoading(true)
     try {
-      const response = await fetch(`http://localhost:13338/api/projects/${id}/stop`, {
+      const response = await fetch(`${API_BASE}/api/projects/${id}/stop`, {
         method: 'POST'
       })
       if (!response.ok) {
@@ -133,7 +134,7 @@ function ProjectDetail({ toast }) {
   const handleSaveSettings = async () => {
     setLoading(true)
     try {
-      const response = await fetch(`http://localhost:13338/api/projects/${id}`, {
+      const response = await fetch(`${API_BASE}/api/projects/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData)
@@ -173,7 +174,7 @@ function ProjectDetail({ toast }) {
     setShowCoreModal(false)
 
     try {
-      const response = await fetch(`http://localhost:13338/api/minecraft/download-core`, {
+      const response = await fetch(`${API_BASE}/api/minecraft/download-core`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -204,7 +205,7 @@ function ProjectDetail({ toast }) {
     setCoreBuilds([])
 
     try {
-      const response = await fetch(`http://localhost:13338/api/minecraft/core-versions/${coreType}`)
+      const response = await fetch(`${API_BASE}/api/minecraft/core-versions/${coreType}`)
       if (response.ok) {
         const data = await response.json()
         setCoreVersions(data.versions || [])
@@ -223,7 +224,7 @@ function ProjectDetail({ toast }) {
     setCoreBuilds([])
 
     try {
-      const response = await fetch(`http://localhost:13338/api/minecraft/core-builds/${coreType}/${version}`)
+      const response = await fetch(`${API_BASE}/api/minecraft/core-builds/${coreType}/${version}`)
       if (response.ok) {
         const data = await response.json()
         setCoreBuilds(data.builds || [])
@@ -240,7 +241,7 @@ function ProjectDetail({ toast }) {
     setShowCoreModal(false)
 
     try {
-      const response = await fetch(`http://localhost:13338/api/minecraft/download-core-build`, {
+      const response = await fetch(`${API_BASE}/api/minecraft/download-core-build`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -286,7 +287,7 @@ function ProjectDetail({ toast }) {
     const command = generateStartCommand()
 
     try {
-      const response = await fetch(`http://localhost:13338/api/projects/${id}`, {
+      const response = await fetch(`${API_BASE}/api/projects/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ startCommand: command })
@@ -307,7 +308,7 @@ function ProjectDetail({ toast }) {
 
   const loadInstalledPlugins = async () => {
     try {
-      const response = await fetch(`http://localhost:13338/api/minecraft/plugins/${id}`)
+      const response = await fetch(`${API_BASE}/api/minecraft/plugins/${id}`)
       if (response.ok) {
         const data = await response.json()
         setInstalledPlugins(data.plugins || [])
@@ -322,7 +323,7 @@ function ProjectDetail({ toast }) {
 
     setLoadingPlugins(true)
     try {
-      const response = await fetch(`http://localhost:13338/api/minecraft/search-plugins`, {
+      const response = await fetch(`${API_BASE}/api/minecraft/search-plugins`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -346,7 +347,7 @@ function ProjectDetail({ toast }) {
   const loadPluginVersions = async (pluginId) => {
     setLoadingPlugins(true)
     try {
-      const response = await fetch(`http://localhost:13338/api/minecraft/plugin-versions/${pluginId}?filters=${encodeURIComponent(JSON.stringify(searchFilters))}`)
+      const response = await fetch(`${API_BASE}/api/minecraft/plugin-versions/${pluginId}?filters=${encodeURIComponent(JSON.stringify(searchFilters))}`)
 
       if (response.ok) {
         const data = await response.json()
@@ -362,7 +363,7 @@ function ProjectDetail({ toast }) {
 
   const downloadPlugin = async (pluginId, versionId, fileName, downloadUrl) => {
     try {
-      const response = await fetch(`http://localhost:13338/api/minecraft/download-plugin`, {
+      const response = await fetch(`${API_BASE}/api/minecraft/download-plugin`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -392,8 +393,8 @@ function ProjectDetail({ toast }) {
     setLoadingJava(true)
     try {
       const [installedRes, availableRes] = await Promise.all([
-        fetch('http://localhost:13338/api/java/list'),
-        fetch('http://localhost:13338/api/java/available')
+        fetch(`${API_BASE}/api/java/list`),
+        fetch(`${API_BASE}/api/java/available`)
       ])
       if (installedRes.ok) {
         const data = await installedRes.json()
@@ -412,7 +413,7 @@ function ProjectDetail({ toast }) {
 
   const handleSelectJava = async (javaPath) => {
     try {
-      const response = await fetch(`http://localhost:13338/api/projects/${id}/java`, {
+      const response = await fetch(`${API_BASE}/api/projects/${id}/java`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ javaPath })
@@ -431,7 +432,7 @@ function ProjectDetail({ toast }) {
 
   const handleDownloadJava = async (ver) => {
     try {
-      const response = await fetch('http://localhost:13338/api/java/download', {
+      const response = await fetch(`${API_BASE}/api/java/download`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ version: ver.version, downloadUrl: ver.downloadUrl, fileName: ver.fileName })

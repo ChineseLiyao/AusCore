@@ -3,6 +3,7 @@ import { Folder, File, ChevronRight, Edit, Trash2, X, Save, Upload, Download, Ar
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import Editor from '@monaco-editor/react'
 import './Files.css'
+import { API_BASE } from '../config'
 
 const MAX_EDIT_SIZE = 5 * 1024 * 1024 // 5MB
 
@@ -82,7 +83,7 @@ function Files({ toast, confirm }) {
     setLoading(true)
     setError(null)
     try {
-      const response = await fetch(`http://localhost:13338/api/files?path=${encodeURIComponent(path)}`)
+      const response = await fetch(`${API_BASE}/api/files?path=${encodeURIComponent(path)}`)
       if (!response.ok) throw new Error('Failed to fetch files')
       const data = await response.json()
       setFiles(data.files)
@@ -111,7 +112,7 @@ function Files({ toast, confirm }) {
     setLoading(true)
     try {
       const filePath = currentPath === '/' ? `/${file.name}` : `${currentPath}/${file.name}`
-      const response = await fetch(`http://localhost:13338/api/files/read?path=${encodeURIComponent(filePath)}`)
+      const response = await fetch(`${API_BASE}/api/files/read?path=${encodeURIComponent(filePath)}`)
       if (!response.ok) throw new Error('Failed to read file')
       const data = await response.json()
       setFileContent(data.content)
@@ -128,7 +129,7 @@ function Files({ toast, confirm }) {
     if (!editingFile) return
     setLoading(true)
     try {
-      const response = await fetch('http://localhost:13338/api/files/write', {
+      const response = await fetch(`${API_BASE}/api/files/write`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -187,7 +188,7 @@ function Files({ toast, confirm }) {
     
     try {
       const filePath = currentPath === '/' ? `/${file.name}` : `${currentPath}/${file.name}`
-      const response = await fetch(`http://localhost:13338/api/files/delete?path=${encodeURIComponent(filePath)}`, {
+      const response = await fetch(`${API_BASE}/api/files/delete?path=${encodeURIComponent(filePath)}`, {
         method: 'DELETE'
       })
       if (!response.ok) throw new Error('Failed to delete file')
@@ -208,7 +209,7 @@ function Files({ toast, confirm }) {
 
     setLoading(true)
     try {
-      const response = await fetch('http://localhost:13338/api/files/upload-batch', {
+      const response = await fetch(`${API_BASE}/api/files/upload-batch`, {
         method: 'POST',
         body: formData
       })
@@ -247,7 +248,7 @@ function Files({ toast, confirm }) {
 
     setLoading(true)
     try {
-      const response = await fetch('http://localhost:13338/api/files/delete-batch', {
+      const response = await fetch(`${API_BASE}/api/files/delete-batch`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -277,7 +278,7 @@ function Files({ toast, confirm }) {
   const handleDownload = async (file) => {
     try {
       const filePath = currentPath === '/' ? `/${file.name}` : `${currentPath}/${file.name}`
-      window.open(`http://localhost:13338/api/files/download?path=${encodeURIComponent(filePath)}`, '_blank')
+      window.open(`${API_BASE}/api/files/download?path=${encodeURIComponent(filePath)}`, '_blank')
     } catch (err) {
       toast.error('下载失败')
       console.error(err)
@@ -300,7 +301,7 @@ function Files({ toast, confirm }) {
     setLoading(true)
     try {
       const filePath = currentPath === '/' ? `/${renamingFile.name}` : `${currentPath}/${renamingFile.name}`
-      const response = await fetch('http://localhost:13338/api/files/rename', {
+      const response = await fetch(`${API_BASE}/api/files/rename`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -336,7 +337,7 @@ function Files({ toast, confirm }) {
     setLoading(true)
     try {
       const sourcePath = currentPath === '/' ? `/${movingFile.name}` : `${currentPath}/${movingFile.name}`
-      const response = await fetch('http://localhost:13338/api/files/move', {
+      const response = await fetch(`${API_BASE}/api/files/move`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -369,7 +370,7 @@ function Files({ toast, confirm }) {
 
     setLoading(true)
     try {
-      const response = await fetch('http://localhost:13338/api/files/compress', {
+      const response = await fetch(`${API_BASE}/api/files/compress`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -399,7 +400,7 @@ function Files({ toast, confirm }) {
     setLoading(true)
     try {
       const filePath = currentPath === '/' ? `/${file.name}` : `${currentPath}/${file.name}`
-      const response = await fetch('http://localhost:13338/api/files/extract', {
+      const response = await fetch(`${API_BASE}/api/files/extract`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ path: filePath })

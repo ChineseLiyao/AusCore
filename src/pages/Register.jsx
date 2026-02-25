@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Eye, EyeOff } from 'lucide-react'
 import './Register.css'
+import { API_BASE } from '../config'
 
 function Register({ onRegister }) {
   const [username, setUsername] = useState('')
@@ -54,7 +55,7 @@ function Register({ onRegister }) {
     }
 
     try {
-      const response = await fetch('http://localhost:13338/api/auth/register', {
+      const response = await fetch(`${API_BASE}/api/auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password })

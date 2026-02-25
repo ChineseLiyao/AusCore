@@ -3,6 +3,7 @@ import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import '@xterm/xterm/css/xterm.css'
 import './ServerTerminal.css'
+import { WS_BASE } from '../config'
 
 function ServerTerminal() {
   const terminalRef = useRef(null)
@@ -51,7 +52,7 @@ function ServerTerminal() {
     fitAddonRef.current = fitAddon
 
     // 连接 WebSocket
-    const ws = new WebSocket('ws://localhost:13338/terminal')
+    const ws = new WebSocket(`${WS_BASE}/terminal`)
     wsRef.current = ws
 
     let commandBuffer = ''

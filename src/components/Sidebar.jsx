@@ -2,6 +2,7 @@ import { Home, LogOut, FolderKanban, FileText, Terminal, User } from 'lucide-rea
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useState, useEffect } from 'react'
 import './Sidebar.css'
+import { API_BASE } from '../config'
 
 function Sidebar({ onLogout }) {
   const navigate = useNavigate()
@@ -9,7 +10,7 @@ function Sidebar({ onLogout }) {
   const [hostname, setHostname] = useState('')
 
   useEffect(() => {
-    fetch('http://localhost:13338/api/hostname')
+    fetch(`${API_BASE}/api/hostname`)
       .then(res => res.json())
       .then(data => setHostname(data.hostname))
       .catch(() => {})

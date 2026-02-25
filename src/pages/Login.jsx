@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Eye, EyeOff } from 'lucide-react'
 import './Login.css'
+import { API_BASE } from '../config'
 
 function EqualizerBackground() {
   const canvasRef = useRef(null)
@@ -110,7 +111,7 @@ function Login({ onLogin }) {
     }
 
     try {
-      const response = await fetch('http://localhost:13338/api/auth/login', {
+      const response = await fetch(`${API_BASE}/api/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password })
