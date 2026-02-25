@@ -1597,7 +1597,8 @@ app.get('/api/env-check/:type', async (req, res) => {
   try {
     const { type } = req.params
     const startCommand = req.query.command || ''
-    const issues = await checkEnvironment(type, startCommand)
+    const javaPath = req.query.javaPath || null
+    const issues = await checkEnvironment(type, startCommand, javaPath)
     res.json({ ok: issues.length === 0, issues })
   } catch (error) {
     res.status(500).json({ error: error.message })

@@ -67,7 +67,12 @@ function ProjectDetail({ toast }) {
 
       // 环境检测
       try {
-        const envRes = await fetch(`${API_BASE}/api/env-check/${data.project.type}?command=${encodeURIComponent(data.project.startCommand || '')}`)
+        const envUrl = new URL(`${API_BASE}/api/env-check/${data.project.type}`)
+        envUrl.searchParams.set('command', data.project.startCommand || '')
+        if (data.project.javaPath) {
+          envUrl.searchParams.set('javaPath', data.project.javaPath)
+        }
+        const envRes = await fetch(envUrl)
         if (envRes.ok) {
           const envData = await envRes.json()
           setEnvWarnings(envData.issues || [])
@@ -522,19 +527,7 @@ function ProjectDetail({ toast }) {
               </div>
               <div className="info-row">
                 <span className="label">端口:</span>
-                <span>
-                  {project.port || '未设置'}
-                  {project.port && project.type === 'static' && project.status === 'running' && (
-                    <a 
-                      href={`http://${window.location.hostname}:${project.port}`} 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      style={{ marginLeft: '10px', color: '#4a90e2' }}
-                    >
-                      访问
-                    </a>
-                  )}
-                </span>
+                <span>{project.port || '未设置'}</span>
               </div>
               <div className="info-row">
                 <span className="label">状态:</span>
