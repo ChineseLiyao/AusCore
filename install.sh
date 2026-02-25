@@ -242,7 +242,7 @@ main() {
   echo -e "${GREEN}║               安装完成               ║${NC}"
   echo -e "${GREEN}╚══════════════════════════════════════╝${NC}"
   echo ""
-  echo -e "  访问地址: ${BLUE}http://${IP}:13338${NC}"
+  echo -e "  访问地址: ${BLUE}http://${IP}:13337${NC}"
   echo -e "  安装目录: ${INSTALL_DIR}"
   echo ""
   echo -e "  管理命令:"
