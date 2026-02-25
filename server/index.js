@@ -67,7 +67,10 @@ app.use(cors())
 app.use(express.json())
 
 // 生产环境下 serve 前端构建产物
-const distPath = path.join(path.dirname(new URL(import.meta.url).pathname.replace(/^\/([A-Z]:)/, '$1')), '..', 'dist')
+import { fileURLToPath } from 'url'
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
+const distPath = path.join(__dirname, '..', 'dist')
 if (fs.existsSync(distPath)) {
   app.use(serveStatic(distPath, { index: ['index.html'] }))
 }

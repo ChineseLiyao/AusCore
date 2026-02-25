@@ -82,7 +82,7 @@ curl -fsSL https://raw.githubusercontent.com/ChineseLiyao/AusCore/main/install.s
 4. 安装依赖并构建前端
 5. 创建系统服务（systemd / launchd）并自动启动
 
-安装完成后访问 `http://服务器IP:13337` 即可使用。
+安装完成后访问 `http://服务器IP:13338` 即可使用。
 
 ---
 
@@ -115,7 +115,7 @@ npm install
 node index.js
 ```
 
-服务默认运行在 `http://服务器ip:13337`，首次访问会引导注册管理员账户。
+服务默认运行在 `http://服务器IP:13338`，首次访问会引导注册管理员账户。
 
 ---
 
