@@ -224,7 +224,7 @@ get_ip() {
 main() {
   echo ""
   echo -e "${BLUE}╔══════════════════════════════════════╗${NC}"
-  echo -e "${BLUE}║          AusCore 自动安装脚本         ║${NC}"
+  echo -e "${BLUE}║          AusCore 自动安装脚本        ║${NC}"
   echo -e "${BLUE}╚══════════════════════════════════════╝${NC}"
   echo ""
 
@@ -239,7 +239,7 @@ main() {
 
   echo ""
   echo -e "${GREEN}╔══════════════════════════════════════╗${NC}"
-  echo -e "${GREEN}║               安装完成                ║${NC}"
+  echo -e "${GREEN}║               安装完成               ║${NC}"
   echo -e "${GREEN}╚══════════════════════════════════════╝${NC}"
   echo ""
   echo -e "  访问地址: ${BLUE}http://${IP}:13338${NC}"
