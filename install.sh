@@ -133,13 +133,13 @@ install_auscore() {
   }
 
   log "安装前端依赖..."
-  npm install --prefix "$INSTALL_DIR"
+  (cd "$INSTALL_DIR" && npm install)
 
   log "构建前端..."
-  npm run build --prefix "$INSTALL_DIR"
+  (cd "$INSTALL_DIR" && npm run build)
 
   log "安装后端依赖..."
-  npm install --prefix "$INSTALL_DIR/server"
+  (cd "$INSTALL_DIR/server" && npm install)
 
   log "AusCore 安装完成"
 }
