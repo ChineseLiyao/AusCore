@@ -79,14 +79,17 @@ let networkHistory = { rx: 0, tx: 0, timestamp: Date.now() }
 let diskHistory = { read: 0, write: 0, timestamp: Date.now() }
 let cpuHistory = null
 
+// 缓存 metrics 数据，避免并发请求重复计算
+let metricsCache = null
+let metricsCacheTime = 0
+const METRICS_CACHE_TTL = 1000 // 1 秒缓存
+
 async function getCPUUsage() {
   return new Promise((resolve) => {
     const startMeasure = os.cpus()
-    const startTime = Date.now()
 
     setTimeout(() => {
       const endMeasure = os.cpus()
-      const endTime = Date.now()
 
       let totalIdle = 0
       let totalTick = 0
@@ -104,14 +107,12 @@ async function getCPUUsage() {
         totalTick += totalDiff
       }
 
-      // 计算所有核心的平均使用率
       const usage = totalTick > 0 ? 100 - (100 * totalIdle / totalTick) : 0
 
       let loadAvg = '0.00, 0.00, 0.00'
       if (process.platform !== 'win32') {
         loadAvg = os.loadavg().map(l => l.toFixed(2)).join(', ')
       } else {
-        // Windows 显示核心数和使用率
         loadAvg = `${numCores} cores, ${usage.toFixed(1)}%`
       }
 
@@ -119,7 +120,7 @@ async function getCPUUsage() {
         usage: parseFloat(usage.toFixed(1)),
         loadAvg
       })
-    }, 500) // 增加采样间隔到 500ms，更准确
+    }, 300) // 缩短到 300ms
   })
 }
 
@@ -280,14 +281,24 @@ app.get('/api/hostname', (req, res) => {
 
 app.get('/api/metrics', async (req, res) => {
   try {
+    const now = Date.now()
+    
+    // 使用缓存避免并发请求重复计算
+    if (metricsCache && (now - metricsCacheTime) < METRICS_CACHE_TTL) {
+      return res.json(metricsCache)
+    }
+
+    // 并发获取所有指标，但加超时保护
+    const timeout = (ms, fallback) => new Promise(resolve => setTimeout(() => resolve(fallback), ms))
+    
     const [cpu, memory, disk, network] = await Promise.all([
-      getCPUUsage(),
-      getMemoryUsage(),
-      getDiskUsage(),
-      getNetworkUsage()
+      Promise.race([getCPUUsage(), timeout(1000, { usage: 0, loadAvg: 'N/A' })]),
+      Promise.resolve(getMemoryUsage()),
+      Promise.race([getDiskUsage(), timeout(1500, { read: '0.00', write: '0.00' })]),
+      Promise.race([getNetworkUsage(), timeout(1500, { download: '0.00', upload: '0.00' })])
     ])
 
-    res.json({
+    const result = {
       cpu: {
         value: cpu.usage,
         load: cpu.loadAvg
@@ -305,7 +316,12 @@ app.get('/api/metrics', async (req, res) => {
         download: parseFloat(network.download),
         upload: parseFloat(network.upload)
       }
-    })
+    }
+    
+    metricsCache = result
+    metricsCacheTime = now
+    
+    res.json(result)
   } catch (error) {
     res.status(500).json({ error: error.message })
   }
@@ -371,7 +387,9 @@ wss.on('connection', async (ws, req) => {
       
       serverTerminalProcess.stdout.on('data', (data) => {
         const isWin = process.platform === 'win32'
-        const text = isWin ? decodeWindowsOutput(data) : data.toString('utf8')
+        const raw = isWin ? decodeWindowsOutput(data) : data.toString('utf8')
+        // 确保换行符为 \r\n，xterm.js 需要 \r\n 才能正确回到行首
+        const text = raw.replace(/\r?\n/g, '\r\n')
         const log = { type: 'stdout', data: text, timestamp: Date.now() }
         serverTerminalClients.forEach(client => {
           if (client.readyState === 1) {
@@ -382,7 +400,8 @@ wss.on('connection', async (ws, req) => {
       
       serverTerminalProcess.stderr.on('data', (data) => {
         const isWin = process.platform === 'win32'
-        const text = isWin ? decodeWindowsOutput(data) : data.toString('utf8')
+        const raw = isWin ? decodeWindowsOutput(data) : data.toString('utf8')
+        const text = raw.replace(/\r?\n/g, '\r\n')
         const log = { type: 'stderr', data: text, timestamp: Date.now() }
         serverTerminalClients.forEach(client => {
           if (client.readyState === 1) {

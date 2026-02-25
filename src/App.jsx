@@ -1,12 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, lazy, Suspense } from 'react'
 import Register from './pages/Register'
 import Login from './pages/Login'
-import Dashboard from './pages/Dashboard'
-import Projects from './pages/Projects'
-import ProjectDetail from './pages/ProjectDetail'
-import Files from './pages/Files'
-import ServerTerminal from './pages/ServerTerminal'
 import Sidebar from './components/Sidebar'
 import Breadcrumb from './components/Breadcrumb'
 import Toast from './components/Toast'
@@ -15,6 +10,13 @@ import DownloadManager from './components/DownloadManager'
 import { useToast } from './hooks/useToast'
 import { useConfirm } from './hooks/useConfirm'
 import { API_BASE } from './config'
+
+// 懒加载页面组件
+const Dashboard = lazy(() => import('./pages/Dashboard'))
+const Projects = lazy(() => import('./pages/Projects'))
+const ProjectDetail = lazy(() => import('./pages/ProjectDetail'))
+const Files = lazy(() => import('./pages/Files'))
+const ServerTerminal = lazy(() => import('./pages/ServerTerminal'))
 
 const API_URL = `${API_BASE}/api/metrics`
 
@@ -88,14 +90,25 @@ function MainLayout({ onLogout }) {
       <Sidebar onLogout={onLogout} />
       <div style={{ flex: 1, overflow: 'auto', background: 'hsl(0, 0%, 96%)' }}>
         <Breadcrumb />
-        <Routes>
-          <Route path="/dashboard" element={<Dashboard metrics={metrics} error={errorMsg} />} />
-          <Route path="/projects" element={<Projects toast={{ success, error: showError, warning }} confirm={confirm} />} />
-          <Route path="/projects/:id" element={<ProjectDetail toast={{ success, error: showError, warning }} />} />
-          <Route path="/files/*" element={<Files toast={{ success, error: showError, warning }} confirm={confirm} />} />
-          <Route path="/terminal" element={<ServerTerminal toast={{ success, error: showError, warning }} />} />
-          <Route path="*" element={<Navigate to="/dashboard" replace />} />
-        </Routes>
+        <Suspense fallback={
+          <div style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'center', 
+            height: '100%' 
+          }}>
+            <div style={{ fontSize: '14px', color: 'hsl(272, 15%, 60%)' }}>加载中...</div>
+          </div>
+        }>
+          <Routes>
+            <Route path="/dashboard" element={<Dashboard metrics={metrics} error={errorMsg} />} />
+            <Route path="/projects" element={<Projects toast={{ success, error: showError, warning }} confirm={confirm} />} />
+            <Route path="/projects/:id" element={<ProjectDetail toast={{ success, error: showError, warning }} />} />
+            <Route path="/files/*" element={<Files toast={{ success, error: showError, warning }} confirm={confirm} />} />
+            <Route path="/terminal" element={<ServerTerminal toast={{ success, error: showError, warning }} />} />
+            <Route path="*" element={<Navigate to="/dashboard" replace />} />
+          </Routes>
+        </Suspense>
       </div>
       {confirmState && (
         <ConfirmDialog
@@ -131,15 +144,17 @@ function App() {
         const session = localStorage.getItem('auscore_session')
         setIsAuthenticated(!!session)
         
-        // 检查服务器是否有管理员账户
+        // 检查服务器是否有管理员账户（缩短超时）
         const controller = new AbortController()
-        const timeout = setTimeout(() => controller.abort(), 5000)
+        const timeout = setTimeout(() => controller.abort(), 2000)
         const response = await fetch(`${API_BASE}/api/auth/check`, { signal: controller.signal })
         clearTimeout(timeout)
         const data = await response.json()
         setIsRegistered(data.hasAdmin)
       } catch (error) {
         console.error('Auth check error:', error)
+        // 超时或失败时假设已注册，让用户去登录页
+        setIsRegistered(true)
       } finally {
         setIsLoading(false)
       }
