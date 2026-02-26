@@ -13,6 +13,7 @@ import multer from 'multer'
 import archiver from 'archiver'
 import unzipper from 'unzipper'
 import https from 'https'
+import pty from 'node-pty'
 
 const execAsync = promisify(exec)
 const app = express()
@@ -336,42 +337,25 @@ wss.on('connection', async (ws, req) => {
   if (req.url === '/terminal') {
     serverTerminalClients.add(ws)
     
-    // 如果终端进程不存在，创建一个
+    // 如果终端进程不存在，创建一个 PTY
     if (!serverTerminalProcess) {
       const isWindows = process.platform === 'win32'
-      let shell, shellArgs, spawnEnv
+      const shell = isWindows ? 'powershell.exe' : process.env.SHELL || '/bin/bash'
       
-      if (isWindows) {
-        shell = 'powershell.exe'
-        shellArgs = ['-NoLogo', '-NoExit', '-Command', '[Console]::InputEncoding = [System.Text.Encoding]::UTF8; [Console]::OutputEncoding = [System.Text.Encoding]::UTF8']
-        spawnEnv = {
-          ...process.env,
-          PYTHONIOENCODING: 'utf-8'
-        }
-      } else {
-        shell = '/bin/bash'
-        shellArgs = ['-i']  // 交互式模式
-        spawnEnv = {
-          ...process.env,
-          PYTHONIOENCODING: 'utf-8',
-          LANG: 'en_US.UTF-8',
-          TERM: 'xterm-256color',
-          PS1: '\\u@\\h:\\w\\$ '  // 设置提示符格式
-        }
-      }
-      
-      serverTerminalProcess = spawn(shell, shellArgs, {
+      serverTerminalProcess = pty.spawn(shell, [], {
+        name: 'xterm-256color',
+        cols: 80,
+        rows: 30,
         cwd: BASE_PATH,
-        shell: false,
-        env: spawnEnv
+        env: {
+          ...process.env,
+          TERM: 'xterm-256color',
+          COLORTERM: 'truecolor'
+        }
       })
       
-      serverTerminalProcess.stdout.on('data', (data) => {
-        const isWin = process.platform === 'win32'
-        const raw = isWin ? decodeWindowsOutput(data) : data.toString('utf8')
-        // 确保换行符为 \r\n，xterm.js 需要 \r\n 才能正确回到行首
-        const text = raw.replace(/\r?\n/g, '\r\n')
-        const log = { type: 'stdout', data: text, timestamp: Date.now() }
+      serverTerminalProcess.onData((data) => {
+        const log = { type: 'stdout', data, timestamp: Date.now() }
         serverTerminalClients.forEach(client => {
           if (client.readyState === 1) {
             client.send(JSON.stringify(log))
@@ -379,19 +363,7 @@ wss.on('connection', async (ws, req) => {
         })
       })
       
-      serverTerminalProcess.stderr.on('data', (data) => {
-        const isWin = process.platform === 'win32'
-        const raw = isWin ? decodeWindowsOutput(data) : data.toString('utf8')
-        const text = raw.replace(/\r?\n/g, '\r\n')
-        const log = { type: 'stderr', data: text, timestamp: Date.now() }
-        serverTerminalClients.forEach(client => {
-          if (client.readyState === 1) {
-            client.send(JSON.stringify(log))
-          }
-        })
-      })
-      
-      serverTerminalProcess.on('exit', (code) => {
+      serverTerminalProcess.onExit(() => {
         serverTerminalProcess = null
       })
     }
@@ -400,8 +372,10 @@ wss.on('connection', async (ws, req) => {
       try {
         const data = JSON.parse(message.toString())
         
-        if (data.type === 'command' && serverTerminalProcess) {
-          serverTerminalProcess.stdin.write(data.command + '\n', 'utf8')
+        if (data.type === 'input' && serverTerminalProcess) {
+          serverTerminalProcess.write(data.data)
+        } else if (data.type === 'resize' && serverTerminalProcess) {
+          serverTerminalProcess.resize(data.cols || 80, data.rows || 30)
         } else if (data.type === 'clear') {
           ws.send(JSON.stringify({ type: 'cleared' }))
         }

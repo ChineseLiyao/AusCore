@@ -55,7 +55,6 @@ function ServerTerminal() {
     const ws = new WebSocket(`${WS_BASE}/terminal`)
     wsRef.current = ws
 
-    let commandBuffer = ''
     let connectionTimeout = setTimeout(() => {
       if (ws.readyState !== WebSocket.OPEN) {
         term.writeln('\r\n\x1b[31mConnection timeout - please check server status\x1b[0m')
@@ -90,75 +89,27 @@ function ServerTerminal() {
       term.writeln('\r\n\x1b[31mDisconnected from server\x1b[0m')
     }
 
-    // 判断字符是否为全角/中文（占两个终端列宽）
-    function isFullWidth(char) {
-      const code = char.codePointAt(0)
-      if (code === undefined) return false
-      return (
-        (code >= 0x1100 && code <= 0x115F) ||
-        (code >= 0x2E80 && code <= 0x303E) ||
-        (code >= 0x3040 && code <= 0x33BF) ||
-        (code >= 0x3400 && code <= 0x4DBF) ||
-        (code >= 0x4E00 && code <= 0xA4CF) ||
-        (code >= 0xA960 && code <= 0xA97C) ||
-        (code >= 0xAC00 && code <= 0xD7FF) ||
-        (code >= 0xF900 && code <= 0xFAFF) ||
-        (code >= 0xFE30 && code <= 0xFE6F) ||
-        (code >= 0xFF01 && code <= 0xFF60) ||
-        (code >= 0xFFE0 && code <= 0xFFE6) ||
-        (code >= 0x20000 && code <= 0x2FA1F)
-      )
-    }
-
-    // 处理用户输入
+    // 处理用户输入 - 直接发送原始数据到 PTY
     term.onData((data) => {
       if (!ws || ws.readyState !== WebSocket.OPEN) return
-
-      const code = data.charCodeAt(0)
-
-      // Enter 键
-      if (code === 13) {
-        term.write('\r\n')
-        if (commandBuffer.trim()) {
-          ws.send(JSON.stringify({ type: 'command', command: commandBuffer }))
-        }
-        commandBuffer = ''
-      }
-      // Backspace 键
-      else if (code === 127) {
-        if (commandBuffer.length > 0) {
-          const removed = [...commandBuffer].pop()
-          commandBuffer = [...commandBuffer].slice(0, -1).join('')
-          if (removed && isFullWidth(removed)) {
-            // 中文等全角字符占两列宽度，需要回退两格
-            term.write('\b \b\b \b')
-          } else {
-            term.write('\b \b')
-          }
-        }
-      }
-      // Ctrl+C
-      else if (code === 3) {
-        term.write('^C\r\n')
-        commandBuffer = ''
-      }
-      // Ctrl+L (清屏)
-      else if (code === 12) {
-        term.clear()
-        commandBuffer = ''
-      }
-      // 普通字符
-      else if (code >= 32) {
-        commandBuffer += data
-        term.write(data)
-      }
+      ws.send(JSON.stringify({ type: 'input', data }))
     })
 
-    // 窗口大小改变时自动调整
+    // 窗口大小改变时通知后端
     const handleResize = () => {
       fitAddon.fit()
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ 
+          type: 'resize', 
+          cols: term.cols, 
+          rows: term.rows 
+        }))
+      }
     }
     window.addEventListener('resize', handleResize)
+    
+    // 初始大小
+    setTimeout(() => handleResize(), 100)
 
     return () => {
       window.removeEventListener('resize', handleResize)
