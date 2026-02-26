@@ -271,6 +271,49 @@ app.get('/api/hostname', (req, res) => {
   res.json({ hostname: os.hostname() })
 })
 
+// Docker 镜像源配置
+app.get('/api/docker/mirrors', async (req, res) => {
+  try {
+    const configPath = '/etc/docker/daemon.json'
+    let mirrors = []
+    
+    try {
+      const content = await fs.promises.readFile(configPath, 'utf8')
+      const config = JSON.parse(content)
+      mirrors = config['registry-mirrors'] || []
+    } catch (err) {
+      // 文件不存在或解析失败，返回空数组
+    }
+    
+    res.json({ mirrors })
+  } catch (error) {
+    res.status(500).json({ error: error.message })
+  }
+})
+
+app.post('/api/docker/mirrors', async (req, res) => {
+  try {
+    const { mirrors } = req.body
+    const configPath = '/etc/docker/daemon.json'
+    
+    let config = {}
+    try {
+      const content = await fs.promises.readFile(configPath, 'utf8')
+      config = JSON.parse(content)
+    } catch {
+      // 文件不存在，创建新配置
+    }
+    
+    config['registry-mirrors'] = mirrors
+    
+    await fs.promises.writeFile(configPath, JSON.stringify(config, null, 2), 'utf8')
+    res.json({ success: true })
+  } catch (error) {
+    res.status(500).json({ error: error.message })
+  }
+})
+
+
 app.get('/api/metrics', async (req, res) => {
   try {
     const now = Date.now()

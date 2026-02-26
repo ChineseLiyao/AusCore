@@ -48,6 +48,45 @@ function ProjectDetail({ toast }) {
   const [availableJavas, setAvailableJavas] = useState([])
   const [loadingJava, setLoadingJava] = useState(false)
   const [showJavaHint, setShowJavaHint] = useState(false)
+  const [showDockerMirrorModal, setShowDockerMirrorModal] = useState(false)
+  const [dockerMirrors, setDockerMirrors] = useState('')
+  const [savingMirrors, setSavingMirrors] = useState(false)
+
+  const loadDockerMirrors = async () => {
+    try {
+      const response = await fetch(`${API_BASE}/api/docker/mirrors`)
+      if (response.ok) {
+        const data = await response.json()
+        setDockerMirrors(data.mirrors.join('\n'))
+      }
+    } catch (err) {
+      console.error('Load docker mirrors error:', err)
+    }
+  }
+
+  const saveDockerMirrors = async () => {
+    setSavingMirrors(true)
+    try {
+      const mirrors = dockerMirrors.split('\n').map(m => m.trim()).filter(Boolean)
+      const response = await fetch(`${API_BASE}/api/docker/mirrors`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mirrors })
+      })
+      
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error)
+      }
+      
+      toast.success('镜像源已保存，需要重启 Docker 服务生效')
+      setShowDockerMirrorModal(false)
+    } catch (err) {
+      toast.error(err.message || '保存失败')
+    } finally {
+      setSavingMirrors(false)
+    }
+  }
   useEffect(() => {
     fetchProject()
   }, [id])
@@ -577,6 +616,20 @@ function ProjectDetail({ toast }) {
           </div>
 
           <div className="detail-right">
+            {project.type === 'docker' && (
+              <div className="action-card" onClick={() => { setShowDockerMirrorModal(true); loadDockerMirrors() }}>
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="10"/>
+                  <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/>
+                  <path d="M2 12h20"/>
+                </svg>
+                <div className="action-card-text">
+                  <h3>镜像源配置</h3>
+                  <p>配置 Docker 镜像加速</p>
+                </div>
+              </div>
+            )}
+
             {project.type === 'minecraft' && (
               <>
                 <div className="action-card minecraft-java" onClick={() => { setShowJavaModal(true); loadJavaList() }}>
@@ -1179,6 +1232,59 @@ function ProjectDetail({ toast }) {
                   </div>
                 </>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showDockerMirrorModal && (
+        <div className="modal-overlay" onClick={() => setShowDockerMirrorModal(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '500px' }}>
+            <div className="modal-header">
+              <h2>Docker 镜像源配置</h2>
+              <button className="modal-close" onClick={() => setShowDockerMirrorModal(false)}>
+                <X size={20} />
+              </button>
+            </div>
+            <div className="modal-body">
+              <p style={{ marginBottom: '12px', color: '#666', fontSize: '14px' }}>
+                每行一个镜像地址，保存后需要重启 Docker 服务生效
+              </p>
+              <textarea
+                value={dockerMirrors}
+                onChange={(e) => setDockerMirrors(e.target.value)}
+                placeholder="https://mirror.example.com&#10;https://docker.mirrors.ustc.edu.cn"
+                rows={8}
+                style={{
+                  width: '100%',
+                  padding: '10px',
+                  border: '1px solid #ddd',
+                  borderRadius: '4px',
+                  fontFamily: 'monospace',
+                  fontSize: '13px',
+                  resize: 'vertical'
+                }}
+              />
+              <div style={{ marginTop: '12px', fontSize: '13px', color: '#666' }}>
+                <p style={{ marginBottom: '4px' }}>常用镜像源：</p>
+                <ul style={{ paddingLeft: '20px', margin: 0 }}>
+                  <li>https://docker.mirrors.ustc.edu.cn</li>
+                  <li>https://hub-mirror.c.163.com</li>
+                  <li>https://mirror.baidubce.com</li>
+                </ul>
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="btn-secondary" onClick={() => setShowDockerMirrorModal(false)}>
+                取消
+              </button>
+              <button 
+                className="btn-primary" 
+                onClick={saveDockerMirrors}
+                disabled={savingMirrors}
+              >
+                {savingMirrors ? '保存中...' : '保存'}
+              </button>
             </div>
           </div>
         </div>
