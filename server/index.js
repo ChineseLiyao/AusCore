@@ -1165,7 +1165,9 @@ function startDockerProject(projectId, projectPath, dockerConfig) {
 
       childProcess.stdout.on('data', (data) => {
         const text = isWindows ? decodeWindowsOutput(data) : data.toString('utf8')
-        const log = { type: 'stdout', data: text, timestamp: Date.now() }
+        // 处理 \r 回车符：将 \r 转换为 \r\n，但如果已经是 \r\n 则不重复
+        const processedText = text.replace(/\r(?!\n)/g, '\r\n')
+        const log = { type: 'stdout', data: processedText, timestamp: Date.now() }
         processData.logs.push(log)
         saveLog(projectId, log)
         const clients = projectClients.get(projectId)
@@ -1176,7 +1178,8 @@ function startDockerProject(projectId, projectPath, dockerConfig) {
 
       childProcess.stderr.on('data', (data) => {
         const text = isWindows ? decodeWindowsOutput(data) : data.toString('utf8')
-        const log = { type: 'stderr', data: text, timestamp: Date.now() }
+        const processedText = text.replace(/\r(?!\n)/g, '\r\n')
+        const log = { type: 'stderr', data: processedText, timestamp: Date.now() }
         processData.logs.push(log)
         saveLog(projectId, log)
         const clients = projectClients.get(projectId)
@@ -1275,7 +1278,8 @@ function startCustomProcess(projectId, projectPath, startCommand) {
 
       childProcess.stdout.on('data', (data) => {
         const text = isWindows ? decodeWindowsOutput(data) : data.toString('utf8')
-        const log = { type: 'stdout', data: text, timestamp: Date.now() }
+        const processedText = text.replace(/\r(?!\n)/g, '\r\n')
+        const log = { type: 'stdout', data: processedText, timestamp: Date.now() }
         processData.logs.push(log)
         saveLog(projectId, log)
 
@@ -1291,7 +1295,8 @@ function startCustomProcess(projectId, projectPath, startCommand) {
 
       childProcess.stderr.on('data', (data) => {
         const text = isWindows ? decodeWindowsOutput(data) : data.toString('utf8')
-        const log = { type: 'stderr', data: text, timestamp: Date.now() }
+        const processedText = text.replace(/\r(?!\n)/g, '\r\n')
+        const log = { type: 'stderr', data: processedText, timestamp: Date.now() }
         processData.logs.push(log)
         saveLog(projectId, log)
 
