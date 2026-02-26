@@ -1,14 +1,10 @@
 pipeline {
-    agent {
-        docker {
-            image 'node:20-alpine'
-            args '-u root -v /opt/auscore:/opt/auscore'
-        }
-    }
+    agent any
     
     environment {
         DEPLOY_PATH = '/opt/auscore'
         PM2_APP_NAME = 'auscore'
+        PATH = "/usr/local/bin:${env.PATH}"
     }
     
     stages {
@@ -19,21 +15,26 @@ pipeline {
             }
         }
         
+        stage('Check Environment') {
+            steps {
+                echo 'Checking environment...'
+                sh '''
+                    which node || echo "Node.js not found in PATH"
+                    which npm || echo "NPM not found in PATH"
+                    which pm2 || echo "PM2 not found in PATH"
+                '''
+            }
+        }
+        
         stage('Install Dependencies') {
             steps {
                 echo 'Installing dependencies...'
                 sh '''
-                    echo "Node version:"
-                    node --version
-                    echo "NPM version:"
-                    npm --version
-                    echo "Installing root dependencies..."
-                    npm install
-                    echo "Installing server dependencies..."
+                    /usr/local/bin/node --version
+                    /usr/local/bin/npm --version
+                    /usr/local/bin/npm install
                     cd server
-                    npm install
-                    echo "Installing PM2..."
-                    npm install -g pm2
+                    /usr/local/bin/npm install
                 '''
             }
         }
@@ -41,7 +42,7 @@ pipeline {
         stage('Build Frontend') {
             steps {
                 echo 'Building frontend...'
-                sh 'npm run build'
+                sh '/usr/local/bin/npm run build'
             }
         }
         
@@ -66,7 +67,6 @@ pipeline {
         }
         
         stage('Restart Services') {
-            agent any  // 切换回宿主机执行 PM2 命令
             steps {
                 echo 'Restarting PM2 services...'
                 sh '''
@@ -88,7 +88,7 @@ pipeline {
             echo '✅ Deployment successful!'
         }
         failure {
-            echo '❌ Deployment failed!'
+            echo '❌ Deployment failed! Check console output for details.'
         }
         always {
             echo 'Cleaning up old backups...'
