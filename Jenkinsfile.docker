@@ -2,7 +2,7 @@ pipeline {
     agent {
         docker {
             image 'node:20-alpine'
-            args '-u root -v /opt/auscore:/opt/auscore'
+            args '-v /opt/auscore:/opt/auscore'
         }
     }
     
@@ -60,24 +60,26 @@ pipeline {
                     cp -r server ${DEPLOY_PATH}/ || true
                     cp package.json ${DEPLOY_PATH}/ || true
                     
-                    echo "Deployment files copied!"
+                    echo "Restarting services..."
+                    cd ${DEPLOY_PATH}/server
+                    pm2 restart ${PM2_APP_NAME}-api || pm2 start index.js --name ${PM2_APP_NAME}-api
+                    
+                    cd ${DEPLOY_PATH}
+                    pm2 restart ${PM2_APP_NAME}-frontend || pm2 start npm --name ${PM2_APP_NAME}-frontend -- run dev -- --host 0.0.0.0
+                    
+                    pm2 save
+                    
+                    echo "Deployment completed!"
                 '''
             }
         }
         
-        stage('Restart Services') {
-            agent any  // 切换回宿主机执行 PM2 命令
+        stage('Health Check') {
             steps {
-                echo 'Restarting PM2 services...'
+                echo 'Checking service health...'
                 sh '''
-                    cd ${DEPLOY_PATH}/server
-                    /usr/local/bin/pm2 restart ${PM2_APP_NAME}-api || /usr/local/bin/pm2 start index.js --name ${PM2_APP_NAME}-api
-                    
-                    cd ${DEPLOY_PATH}
-                    /usr/local/bin/pm2 restart ${PM2_APP_NAME}-frontend || /usr/local/bin/pm2 start npm --name ${PM2_APP_NAME}-frontend -- run dev -- --host 0.0.0.0
-                    
-                    /usr/local/bin/pm2 save
-                    /usr/local/bin/pm2 list
+                    sleep 5
+                    pm2 list || true
                 '''
             }
         }
