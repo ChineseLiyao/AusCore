@@ -13,7 +13,14 @@ import multer from 'multer'
 import archiver from 'archiver'
 import unzipper from 'unzipper'
 import https from 'https'
-import pty from 'node-pty'
+
+// 尝试导入 node-pty，如果失败则使用 spawn
+let pty = null
+try {
+  pty = await import('node-pty')
+} catch (err) {
+  console.log('[WARN]node-pty not available, using basic terminal')
+}
 
 const execAsync = promisify(exec)
 const app = express()
@@ -380,47 +387,97 @@ wss.on('connection', async (ws, req) => {
   if (req.url === '/terminal') {
     serverTerminalClients.add(ws)
     
-    // 如果终端进程不存在，创建一个 PTY
+    // 如果终端进程不存在，创建一个
     if (!serverTerminalProcess) {
       const isWindows = process.platform === 'win32'
-      const shell = isWindows ? 'powershell.exe' : process.env.SHELL || '/bin/bash'
       
-      serverTerminalProcess = pty.spawn(shell, [], {
-        name: 'xterm-256color',
-        cols: 80,
-        rows: 30,
-        cwd: BASE_PATH,
-        env: {
-          ...process.env,
-          TERM: 'xterm-256color',
-          COLORTERM: 'truecolor'
-        }
-      })
-      
-      serverTerminalProcess.onData((data) => {
-        const log = { type: 'stdout', data, timestamp: Date.now() }
-        serverTerminalClients.forEach(client => {
-          if (client.readyState === 1) {
-            client.send(JSON.stringify(log))
+      // 如果有 node-pty，使用 PTY
+      if (pty) {
+        const shell = isWindows ? 'powershell.exe' : process.env.SHELL || '/bin/bash'
+        
+        serverTerminalProcess = pty.spawn(shell, [], {
+          name: 'xterm-256color',
+          cols: 80,
+          rows: 30,
+          cwd: BASE_PATH,
+          env: {
+            ...process.env,
+            TERM: 'xterm-256color',
+            COLORTERM: 'truecolor'
           }
         })
-      })
-      
-      serverTerminalProcess.onExit(() => {
-        serverTerminalProcess = null
-      })
+        
+        serverTerminalProcess.onData((data) => {
+          const log = { type: 'stdout', data, timestamp: Date.now() }
+          serverTerminalClients.forEach(client => {
+            if (client.readyState === 1) {
+              client.send(JSON.stringify(log))
+            }
+          })
+        })
+        
+        serverTerminalProcess.onExit(() => {
+          serverTerminalProcess = null
+        })
+      } else {
+        // 回退到 spawn
+        const shell = isWindows ? 'powershell.exe' : '/bin/bash'
+        const shellArgs = isWindows ? ['-NoLogo', '-NoExit'] : ['-i']
+        
+        serverTerminalProcess = spawn(shell, shellArgs, {
+          cwd: BASE_PATH,
+          shell: false,
+          env: {
+            ...process.env,
+            TERM: 'xterm-256color'
+          }
+        })
+        
+        serverTerminalProcess.stdout.on('data', (data) => {
+          const raw = isWindows ? decodeWindowsOutput(data) : data.toString('utf8')
+          const text = raw.replace(/\r(?!\n)/g, '\r\n')
+          const log = { type: 'stdout', data: text, timestamp: Date.now() }
+          serverTerminalClients.forEach(client => {
+            if (client.readyState === 1) {
+              client.send(JSON.stringify(log))
+            }
+          })
+        })
+        
+        serverTerminalProcess.stderr.on('data', (data) => {
+          const raw = isWindows ? decodeWindowsOutput(data) : data.toString('utf8')
+          const text = raw.replace(/\r(?!\n)/g, '\r\n')
+          const log = { type: 'stderr', data: text, timestamp: Date.now() }
+          serverTerminalClients.forEach(client => {
+            if (client.readyState === 1) {
+              client.send(JSON.stringify(log))
+            }
+          })
+        })
+        
+        serverTerminalProcess.on('exit', () => {
+          serverTerminalProcess = null
+        })
+      }
     }
     
     ws.on('message', (message) => {
       try {
         const data = JSON.parse(message.toString())
         
-        if (data.type === 'input' && serverTerminalProcess) {
-          serverTerminalProcess.write(data.data)
-        } else if (data.type === 'resize' && serverTerminalProcess) {
-          serverTerminalProcess.resize(data.cols || 80, data.rows || 30)
-        } else if (data.type === 'clear') {
-          ws.send(JSON.stringify({ type: 'cleared' }))
+        if (serverTerminalProcess) {
+          if (pty && data.type === 'input') {
+            // PTY 模式：直接写入
+            serverTerminalProcess.write(data.data)
+          } else if (pty && data.type === 'resize') {
+            // PTY 模式：调整大小
+            serverTerminalProcess.resize(data.cols || 80, data.rows || 30)
+          } else if (!pty && data.type === 'input') {
+            // Spawn 模式：写入 stdin
+            serverTerminalProcess.stdin.write(data.data)
+          } else if (data.type === 'clear') {
+            ws.send(JSON.stringify({ type: 'cleared' }))
+          }
         }
       } catch (error) {
         console.error('Server terminal message error:', error)
