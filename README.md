@@ -72,7 +72,7 @@
 **一键安装：**
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/ChineseLiyao/AusCore/main/install.sh | sudo bash
+curl -fsSL https://lya.bz/ac | sudo bash
 ```
 
 脚本会自动完成：
