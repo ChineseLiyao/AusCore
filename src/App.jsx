@@ -7,6 +7,7 @@ import Breadcrumb from './components/Breadcrumb'
 import Toast from './components/Toast'
 import ConfirmDialog from './components/ConfirmDialog'
 import DownloadManager from './components/DownloadManager'
+import UploadManager from './components/UploadManager'
 import { useToast } from './hooks/useToast'
 import { useConfirm } from './hooks/useConfirm'
 import { API_BASE } from './config'
@@ -155,6 +156,7 @@ function MainLayout({ onLogout }) {
         ))}
       </div>
       <DownloadManager />
+      <UploadManager toast={{ success, error: showError, warning }} />
     </div>
   )
 }

@@ -4,6 +4,7 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import Editor from '@monaco-editor/react'
 import './Files.css'
 import { API_BASE } from '../config'
+import { uploadManager } from '../components/UploadManager'
 
 const MAX_EDIT_SIZE = 5 * 1024 * 1024 // 5MB
 
@@ -29,6 +30,17 @@ function Files({ toast, confirm }) {
 
   useEffect(() => {
     fetchFiles(currentPath)
+  }, [currentPath])
+
+  // 上传完成后刷新当前目录列表
+  useEffect(() => {
+    const handler = (e) => {
+      if (e.detail?.targetPath === currentPath) {
+        fetchFiles(currentPath)
+      }
+    }
+    window.addEventListener('auscore-upload-complete', handler)
+    return () => window.removeEventListener('auscore-upload-complete', handler)
   }, [currentPath])
 
   // 拖拽上传处理
@@ -213,34 +225,8 @@ function Files({ toast, confirm }) {
 
   const uploadFiles = async (filesList) => {
     if (filesList.length === 0) return
-
-    const formData = new FormData()
-    filesList.forEach(file => formData.append('files', file))
-    formData.append('path', currentPath)
-
-    setLoading(true)
-    try {
-      const response = await fetch(`${API_BASE}/api/files/upload-batch`, {
-        method: 'POST',
-        body: formData
-      })
-      if (!response.ok) throw new Error('Failed to upload files')
-      const data = await response.json()
-      
-      fetchFiles(currentPath)
-      
-      if (data.summary.failed > 0) {
-        toast.warning(`上传完成：${data.summary.success} 成功，${data.summary.failed} 失败`)
-      } else {
-        toast.success(`成功上传 ${data.summary.success} 个文件`)
-      }
-    } catch (err) {
-      toast.error('文件上传失败')
-      console.error(err)
-    } finally {
-      setLoading(false)
-      if (fileInputRef.current) fileInputRef.current.value = ''
-    }
+    uploadManager.addFiles(filesList, currentPath)
+    if (fileInputRef.current) fileInputRef.current.value = ''
   }
 
   const handleUpload = async (e) => {

@@ -1,0 +1,217 @@
+/* 浮动上传按钮 */
+.upload-fab {
+  position: fixed;
+  bottom: 28px;
+  right: 92px;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: white;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.18);
+  cursor: pointer;
+  z-index: 9980;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: fabIn 0.3s ease-out;
+}
+
+.upload-fab-ring {
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+.upload-fab-progress {
+  transition: stroke-dashoffset 0.4s ease;
+}
+
+.upload-fab-icon {
+  color: hsl(208, 40%, 35%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1;
+}
+
+.upload-fab-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  background: hsl(0, 84%, 60%);
+  color: white;
+  font-size: 11px;
+  font-weight: 600;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2;
+}
+
+/* 展开面板 */
+.upload-panel {
+  position: fixed;
+  bottom: 86px;
+  right: 92px;
+  width: 340px;
+  max-height: 420px;
+  background: white;
+  border-radius: 10px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.16);
+  z-index: 9980;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  animation: panelIn 0.2s ease-out;
+}
+
+@keyframes panelIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.upload-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid hsl(272, 15%, 92%);
+  font-size: 14px;
+  font-weight: 600;
+  color: hsl(272, 15%, 20%);
+  flex-shrink: 0;
+}
+
+.upload-panel-close {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: hsl(272, 15%, 60%);
+  padding: 2px;
+  display: flex;
+  align-items: center;
+  border-radius: 4px;
+  transition: background 0.2s;
+}
+
+.upload-panel-close:hover {
+  background: hsl(272, 15%, 95%);
+}
+
+.upload-panel-list {
+  padding: 8px;
+  overflow-y: auto;
+}
+
+.upload-panel-empty {
+  text-align: center;
+  padding: 20px;
+  color: hsl(272, 15%, 60%);
+  font-size: 13px;
+}
+
+.upload-item {
+  padding: 10px 12px;
+  border-radius: 6px;
+  margin-bottom: 4px;
+  background: hsl(272, 15%, 98%);
+}
+
+.upload-item:last-child {
+  margin-bottom: 0;
+}
+
+.upload-item-info {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.upload-item-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: hsl(272, 15%, 20%);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+
+.upload-item-status {
+  font-size: 12px;
+  color: hsl(272, 15%, 50%);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.upload-item.done .upload-item-status {
+  color: hsl(142, 76%, 36%);
+}
+
+.upload-item.error .upload-item-status {
+  color: hsl(0, 84%, 60%);
+}
+
+.upload-item.paused .upload-item-status {
+  color: hsl(38, 90%, 50%);
+}
+
+.upload-item-bar {
+  margin-top: 6px;
+  height: 4px;
+  background: hsl(272, 15%, 90%);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.upload-item-bar-fill {
+  height: 100%;
+  background: hsl(208, 40%, 35%);
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+
+.upload-item.error .upload-item-bar-fill {
+  background: hsl(0, 84%, 60%);
+}
+
+.upload-item.done .upload-item-bar-fill {
+  background: hsl(142, 76%, 36%);
+}
+
+.upload-item-actions {
+  margin-top: 8px;
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+.upload-item-btn {
+  background: none;
+  border: 1px solid hsl(272, 15%, 85%);
+  border-radius: 4px;
+  cursor: pointer;
+  color: hsl(272, 15%, 42%);
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.upload-item-btn:hover {
+  background: hsl(272, 15%, 95%);
+  border-color: hsl(272, 15%, 60%);
+}
+
+.upload-item-btn-danger:hover {
+  background: hsl(0, 84%, 96%);
+  border-color: hsl(0, 84%, 60%);
+  color: hsl(0, 84%, 60%);
+}

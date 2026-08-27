@@ -13,6 +13,7 @@ import multer from 'multer'
 import archiver from 'archiver'
 import unzipper from 'unzipper'
 import https from 'https'
+import crypto from 'crypto'
 
 // 尝试导入 node-pty，如果失败则使用 spawn
 let pty = null
@@ -934,6 +935,168 @@ app.post('/api/files/upload-batch', upload.array('files', 50), async (req, res) 
     })
   } catch (error) {
     console.error('Batch upload error:', error)
+    res.status(500).json({ error: error.message })
+  }
+})
+
+// ---- 分块上传（支持断点续传）----
+
+// 生成分块文件的唯一 ID（基于目标路径 + 文件名 + 文件大小）
+function getUploadFileId(targetPath, filename, size) {
+  return crypto.createHash('md5').update(`${targetPath}/${filename}:${size || ''}`).digest('hex')
+}
+
+function getPartPath(fileId) {
+  return path.join(UPLOAD_DIR, `${fileId}.part`)
+}
+
+async function getPartSize(fileId) {
+  try {
+    const stats = await fs.promises.stat(getPartPath(fileId))
+    return stats.size
+  } catch {
+    return 0
+  }
+}
+
+// 查询断点：返回服务器已接收的字节数
+app.get('/api/files/upload/resume', async (req, res) => {
+  try {
+    const targetPath = req.query.path || '/'
+    const filename = req.query.filename
+    const size = parseInt(req.query.size, 10) || 0
+
+    if (!filename) {
+      return res.status(400).json({ error: 'Filename required' })
+    }
+
+    const fullTargetPath = path.join(BASE_PATH, targetPath)
+    if (!fullTargetPath.startsWith(BASE_PATH)) {
+      return res.status(403).json({ error: 'Access denied' })
+    }
+
+    const fileId = getUploadFileId(targetPath, filename, size)
+    const uploaded = await getPartSize(fileId)
+    res.json({ uploaded })
+  } catch (error) {
+    console.error('Upload resume query error:', error)
+    res.status(500).json({ error: error.message })
+  }
+})
+
+// 上传分块：原始二进制流，追加到分块文件
+app.post('/api/files/upload/chunk', express.raw({ type: () => true, limit: '16mb' }), async (req, res) => {
+  try {
+    const safeDecode = (v) => {
+      try { return v ? decodeURIComponent(v) : v } catch { return v }
+    }
+    const targetPath = safeDecode(req.headers['x-target-path']) || '/'
+    const filename = safeDecode(req.headers['x-filename'])
+    const offset = parseInt(req.headers['x-offset'], 10)
+    const size = parseInt(req.headers['x-total-size'], 10) || 0
+
+    if (!filename) {
+      return res.status(400).json({ error: 'Filename required' })
+    }
+    if (Number.isNaN(offset) || offset < 0) {
+      return res.status(400).json({ error: 'Invalid offset' })
+    }
+    if (!Buffer.isBuffer(req.body) || req.body.length === 0) {
+      return res.status(400).json({ error: 'Empty chunk' })
+    }
+
+    const fullTargetPath = path.join(BASE_PATH, targetPath)
+    if (!fullTargetPath.startsWith(BASE_PATH)) {
+      return res.status(403).json({ error: 'Access denied' })
+    }
+
+    await ensureUploadDir()
+    const fileId = getUploadFileId(targetPath, filename, size)
+    const partPath = getPartPath(fileId)
+
+    // 校验偏移：本地分块大小与请求偏移不一致时截断对齐，防止错位
+    const currentSize = await getPartSize(fileId)
+    if (currentSize !== offset) {
+      await fs.promises.truncate(partPath, offset).catch(() => {})
+    }
+
+    await new Promise((resolve, reject) => {
+      const ws = fs.createWriteStream(partPath, { flags: 'a' })
+      ws.on('finish', resolve)
+      ws.on('error', reject)
+      ws.write(req.body)
+      ws.end()
+    })
+
+    const uploaded = await getPartSize(fileId)
+    res.json({ uploaded })
+  } catch (error) {
+    console.error('Upload chunk error:', error)
+    res.status(500).json({ error: error.message })
+  }
+})
+
+// 完成上传：将分块文件移动到目标位置
+app.post('/api/files/upload/complete', async (req, res) => {
+  try {
+    const targetPath = req.body.path || '/'
+    const filename = req.body.filename
+    const size = parseInt(req.body.size, 10) || 0
+
+    if (!filename) {
+      return res.status(400).json({ error: 'Filename required' })
+    }
+
+    const fullTargetPath = path.join(BASE_PATH, targetPath)
+    if (!fullTargetPath.startsWith(BASE_PATH)) {
+      return res.status(403).json({ error: 'Access denied' })
+    }
+
+    // 防止文件名包含路径分隔符导致越界
+    const safeName = path.basename(filename)
+    const finalPath = path.join(fullTargetPath, safeName)
+    if (!finalPath.startsWith(fullTargetPath)) {
+      return res.status(403).json({ error: 'Access denied' })
+    }
+
+    const fileId = getUploadFileId(targetPath, filename, size)
+    const partPath = getPartPath(fileId)
+
+    try {
+      await fs.promises.rename(partPath, finalPath)
+    } catch (err) {
+      // 跨设备时 rename 会失败，回退为复制后删除
+      if (err.code === 'EXDEV') {
+        await fs.promises.copyFile(partPath, finalPath)
+        await fs.promises.unlink(partPath)
+      } else {
+        throw err
+      }
+    }
+
+    res.json({ success: true, filename: safeName })
+  } catch (error) {
+    console.error('Upload complete error:', error)
+    res.status(500).json({ error: error.message })
+  }
+})
+
+// 取消上传：删除未完成的分块文件
+app.delete('/api/files/upload/resume', async (req, res) => {
+  try {
+    const targetPath = req.query.path || '/'
+    const filename = req.query.filename
+    const size = parseInt(req.query.size, 10) || 0
+
+    if (!filename) {
+      return res.status(400).json({ error: 'Filename required' })
+    }
+
+    const fileId = getUploadFileId(targetPath, filename, size)
+    await fs.promises.unlink(getPartPath(fileId)).catch(() => {})
+    res.json({ success: true })
+  } catch (error) {
+    console.error('Upload cancel error:', error)
     res.status(500).json({ error: error.message })
   }
 })
