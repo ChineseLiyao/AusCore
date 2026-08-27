@@ -42,7 +42,7 @@
 - 项目内置终端，实时查看日志输出
 - Minecraft 服务端核心下载（Paper / Purpur）
 - Modrinth 插件搜索与安装
-- Java 版本管理（Adoptium）
+- Java 版本管理（检测系统与已安装的 Java 环境）
 - 启动命令可视化配置
 
 ### 文件管理器
@@ -80,9 +80,9 @@ curl -fsSL https://lya.bz/ac | sudo bash
 2. 安装 Node.js 20 和 Git（如未安装）
 3. 克隆项目到 `/opt/auscore`
 4. 安装依赖并构建前端
-5. 使用 PM2 启动前后端服务
+5. 使用 PM2 启动后端服务（前端构建产物由后端托管）
 
-安装完成后访问 `http://服务器IP:13337` 即可使用。
+安装完成后访问 `http://服务器IP:13338` 即可使用。
 
 ---
 
@@ -111,13 +111,13 @@ npm run build
 cd server
 npm install
 
-# 4. 启动后端
+# 4. 启动后端（自动托管前端构建产物）
 node index.js
 ```
 
 后端默认运行在 `http://服务器IP:13338`。
 
-**推荐使用 PM2 同时运行前后端：**
+**推荐使用 PM2 运行：**
 
 ```bash
 # 安装 PM2
@@ -127,16 +127,12 @@ npm install -g pm2
 cd AusCore/server
 pm2 start index.js --name auscore-api
 
-# 启动前端开发服务器
-cd ..
-pm2 start npm --name auscore-frontend -- run dev -- --host 0.0.0.0
-
 # 保存配置
 pm2 save
 pm2 startup
 ```
 
-访问 `http://服务器IP:13337`，首次访问会引导注册管理员账户。
+访问 `http://服务器IP:13338`，首次访问会引导注册管理员账户。
 
 ---
 
@@ -221,9 +217,7 @@ npm run dev
 ```bash
 pm2 list                      # 查看所有服务
 pm2 logs auscore-api          # 查看后端日志
-pm2 logs auscore-frontend     # 查看前端日志
 pm2 restart auscore-api       # 重启后端
-pm2 restart auscore-frontend  # 重启前端
 pm2 stop all                  # 停止所有服务
 pm2 delete all                # 删除所有服务
 ```

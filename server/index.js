@@ -78,6 +78,7 @@ app.use(express.json())
 let networkHistory = { rx: 0, tx: 0, timestamp: Date.now() }
 let diskHistory = { read: 0, write: 0, timestamp: Date.now() }
 let cpuHistory = null
+let winNetErrorLogged = false
 
 // 缓存 metrics 数据，避免并发请求重复计算
 let metricsCache = null
@@ -204,39 +205,24 @@ async function getNetworkUsage() {
     let upload = 0
 
     if (process.platform === 'win32') {
-      const { stdout } = await execAsync('powershell "Get-NetAdapter | Where-Object {$_.Status -eq \'Up\' -and $_.Virtual -eq $false -and $_.Name -notlike \'*Loopback*\' -and $_.Name -notlike \'*vEthernet*\'} | Select-Object -First 1 -ExpandProperty InterfaceDescription"', { encoding: 'utf8' })
-      const adapterName = stdout.trim()
+      // 使用 Get-NetAdapterStatistics 统计字节数，按时间差计算速率
+      const { stdout } = await execAsync(`powershell -NoProfile -Command "$a = Get-NetAdapter | Where-Object {$_.Status -eq 'Up' -and $_.Virtual -eq $false -and $_.Name -notlike '*Loopback*' -and $_.Name -notlike '*vEthernet*'} | Select-Object -ExpandProperty Name; $s = Get-NetAdapterStatistics | Where-Object {$a -contains $_.Name}; [math]::Round((($s | Measure-Object -Property ReceivedBytes -Sum).Sum -as [double])); [math]::Round((($s | Measure-Object -Property SentBytes -Sum).Sum -as [double]))"`, { encoding: 'utf8' })
+      const nums = stdout.split(/\r?\n/).map(l => parseFloat(l.trim())).filter(n => !isNaN(n))
+      const totalRx = nums[0] || 0
+      const totalTx = nums[1] || 0
+      const now = Date.now()
+      const timeDiff = (now - networkHistory.timestamp) / 1000
 
-      if (adapterName) {
-        try {
-          const { stdout: perfData } = await execAsync(`chcp 65001 > nul && typeperf "\\Network Interface(${adapterName})\\Bytes Received/sec" "\\Network Interface(${adapterName})\\Bytes Sent/sec" -sc 1`, { encoding: 'utf8' })
-          const lines = perfData.split('\n')
+      if (networkHistory.rx > 0 && timeDiff > 0) {
+        const rxDiff = totalRx - networkHistory.rx
+        const txDiff = totalTx - networkHistory.tx
 
-          for (let line of lines) {
-            if (line.includes(',') && !line.includes('PDH') && !line.includes('exiting')) {
-              const parts = line.split(',')
-              if (parts.length >= 3) {
-                // 第一列是时间戳，第二列是接收（下载），第三列是发送（上传）
-                const rxStr = parts[1].replace(/"/g, '').trim()
-                const txStr = parts[2].replace(/"/g, '').trim()
-                const rxVal = parseFloat(rxStr)
-                const txVal = parseFloat(txStr)
-
-                if (!isNaN(rxVal) && rxVal >= 0) {
-                  download = rxVal / 1024 / 1024
-                }
-                if (!isNaN(txVal) && txVal >= 0) {
-                  upload = txVal / 1024 / 1024
-                }
-
-                break // 只处理第一行有效数据
-              }
-            }
-          }
-        } catch (perfError) {
-          console.error('Typeperf error:', perfError.message)
-        }
+        download = rxDiff > 0 ? (rxDiff / 1024 / 1024 / timeDiff) : 0
+        upload = txDiff > 0 ? (txDiff / 1024 / 1024 / timeDiff) : 0
       }
+
+      networkHistory = { rx: totalRx, tx: totalTx, timestamp: now }
+      winNetErrorLogged = false
     } else {
       const { stdout } = await execAsync('cat /proc/net/dev')
       const lines = stdout.split('\n').slice(2)
@@ -270,7 +256,12 @@ async function getNetworkUsage() {
       upload: upload.toFixed(2)
     }
   } catch (error) {
-    console.error('Network error:', error)
+    if (process.platform === 'win32' && !winNetErrorLogged) {
+      console.error('Network metrics error (Windows):', error.message)
+      winNetErrorLogged = true
+    } else if (process.platform !== 'win32') {
+      console.error('Network error:', error)
+    }
     return { download: '0.00', upload: '0.00' }
   }
 }
@@ -1912,101 +1903,6 @@ app.get('/api/java/list', async (req, res) => {
   }
 })
 
-// 获取可下载的 Java 版本（Adoptium API）
-app.get('/api/java/available', async (req, res) => {
-  try {
-    const isWindows = process.platform === 'win32'
-    const arch = os.arch() === 'x64' ? 'x64' : 'aarch64'
-    const osName = isWindows ? 'windows' : process.platform === 'darwin' ? 'mac' : 'linux'
-    const versions = [8, 11, 17, 21]
-    const results = []
-
-    for (const ver of versions) {
-      try {
-        const url = `https://api.adoptium.net/v3/assets/latest/${ver}/hotspot?architecture=${arch}&image_type=jdk&os=${osName}&vendor=eclipse`
-        const data = await httpsGet(url)
-        if (data && data.length > 0) {
-          const asset = data[0]
-          results.push({
-            version: ver,
-            fullVersion: asset.version?.semver || `${ver}`,
-            downloadUrl: asset.binary?.package?.link || null,
-            size: asset.binary?.package?.size || 0,
-            fileName: asset.binary?.package?.name || ''
-          })
-        }
-      } catch { /* skip version */ }
-    }
-
-    res.json({ versions: results })
-  } catch (error) {
-    res.status(500).json({ error: error.message })
-  }
-})
-
-// 下载 Java
-app.post('/api/java/download', async (req, res) => {
-  try {
-    const { version, downloadUrl, fileName } = req.body
-    if (!downloadUrl || !fileName) {
-      return res.status(400).json({ error: '缺少下载参数' })
-    }
-
-    await ensureJavaDir()
-    const destFile = path.join(JAVA_DIR, fileName)
-    const extractDir = path.join(JAVA_DIR, `jdk-${version}`)
-    const taskId = `java_${version}_${Date.now()}`
-
-    downloadTasks.set(taskId, {
-      name: `Java ${version}`,
-      status: 'downloading',
-      progress: 0,
-      downloaded: 0,
-      totalSize: 0
-    })
-
-    ;(async () => {
-      try {
-        await downloadFile(downloadUrl, destFile, taskId)
-
-        // 解压
-        if (downloadTasks.has(taskId)) {
-          downloadTasks.get(taskId).name = `Java ${version} (解压中)`
-        }
-
-        if (fileName.endsWith('.zip')) {
-          await fs.createReadStream(destFile)
-            .pipe(unzipper.Extract({ path: extractDir }))
-            .promise()
-        } else if (fileName.endsWith('.tar.gz') || fileName.endsWith('.tgz')) {
-          await fs.promises.mkdir(extractDir, { recursive: true })
-          await execAsync(`tar -xzf "${destFile}" -C "${extractDir}" --strip-components=1`)
-        }
-
-        // 删除压缩包
-        await fs.promises.unlink(destFile).catch(() => {})
-
-        if (downloadTasks.has(taskId)) {
-          const task = downloadTasks.get(taskId)
-          task.name = `Java ${version}`
-          task.status = 'done'
-          task.progress = 100
-          setTimeout(() => downloadTasks.delete(taskId), 30000)
-        }
-      } catch (error) {
-        if (downloadTasks.has(taskId)) {
-          downloadTasks.get(taskId).status = 'error'
-          downloadTasks.get(taskId).error = error.message
-        }
-      }
-    })()
-
-    res.json({ success: true, taskId })
-  } catch (error) {
-    res.status(500).json({ error: error.message })
-  }
-})
-
 // 设置项目 Java 路径
 app.post('/api/projects/:id/java', async (req, res) => {
   try {
@@ -2810,4 +2706,21 @@ app.get('/api/auth/check', async (req, res) => {
     console.error('Check auth error:', error)
     res.status(500).json({ error: error.message })
   }
+})
+
+// ---- 生产环境：托管前端构建产物（dist/），单端口部署 ----
+const DIST_DIR = path.join(BASE_PATH, '..', 'dist')
+
+app.use(serveStatic(DIST_DIR, { index: ['index.html'] }))
+
+// SPA 回退：非 API 的 GET 请求返回 index.html
+app.get('*', (req, res) => {
+  if (req.path.startsWith('/api')) {
+    return res.status(404).json({ error: 'Not found' })
+  }
+  const indexFile = path.join(DIST_DIR, 'index.html')
+  if (!fs.existsSync(indexFile)) {
+    return res.status(404).send('Frontend not built. Run `npm run build` in the project root first.')
+  }
+  res.sendFile(indexFile)
 })

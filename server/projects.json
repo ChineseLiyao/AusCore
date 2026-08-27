@@ -1,1 +1,13 @@
-[]
+[
+  {
+    "id": "1787832862399",
+    "name": "a",
+    "type": "minecraft",
+    "port": null,
+    "path": "C:\\Users\\liyao\\Desktop\\Project\\AusCore\\AusCore\\server\\projects\\a_1787832862399",
+    "status": "stopped",
+    "startCommand": "",
+    "stopCommand": "stop",
+    "createdAt": "2026-08-27T12:14:22.399Z"
+  }
+]

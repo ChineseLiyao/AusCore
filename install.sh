@@ -186,15 +186,11 @@ build_frontend() {
 
 # 部署服务
 deploy_services() {
-    print_info "部署前后端服务..."
+    print_info "部署后端服务（前端已由后端托管 dist/，单端口运行）..."
     
     cd "$INSTALL_DIR/server"
     pm2 delete auscore-api 2>/dev/null || true
     pm2 start index.js --name auscore-api
-    
-    cd "$INSTALL_DIR"
-    pm2 delete auscore-frontend 2>/dev/null || true
-    pm2 start npm --name auscore-frontend -- run dev -- --host 0.0.0.0
     
     pm2 save
     
@@ -209,16 +205,14 @@ configure_firewall() {
     print_info "配置防火墙..."
     
     if command -v ufw &> /dev/null; then
-        ufw allow 13337/tcp comment "AusCore Frontend" 2>/dev/null || true
-        ufw allow 13338/tcp comment "AusCore API" 2>/dev/null || true
+        ufw allow 13338/tcp comment "AusCore" 2>/dev/null || true
         print_success "UFW 防火墙规则已添加"
     elif command -v firewall-cmd &> /dev/null; then
-        firewall-cmd --permanent --add-port=13337/tcp 2>/dev/null || true
         firewall-cmd --permanent --add-port=13338/tcp 2>/dev/null || true
         firewall-cmd --reload 2>/dev/null || true
         print_success "Firewalld 防火墙规则已添加"
     else
-        print_warning "未检测到防火墙，请手动开放端口 13337 和 13338"
+        print_warning "未检测到防火墙，请手动开放端口 13338"
     fi
 }
 
@@ -230,16 +224,13 @@ show_completion() {
     echo "=========================================="
     echo ""
     
-    print_info "访问地址: http://$(hostname -I | awk '{print $1}'):13337"
-    print_info "后端 API: http://$(hostname -I | awk '{print $1}'):13338"
+    print_info "访问地址: http://$(hostname -I | awk '{print $1}'):13338"
     echo ""
     
     print_info "常用命令:"
     echo "  pm2 list                      # 查看进程状态"
     echo "  pm2 logs auscore-api          # 查看后端日志"
-    echo "  pm2 logs auscore-frontend     # 查看前端日志"
     echo "  pm2 restart auscore-api       # 重启后端"
-    echo "  pm2 restart auscore-frontend  # 重启前端"
     echo "  pm2 stop all                  # 停止所有服务"
     echo ""
     

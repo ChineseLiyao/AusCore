@@ -45,7 +45,6 @@ function ProjectDetail({ toast }) {
   const [envWarnings, setEnvWarnings] = useState([])
   const [showJavaModal, setShowJavaModal] = useState(false)
   const [installedJavas, setInstalledJavas] = useState([])
-  const [availableJavas, setAvailableJavas] = useState([])
   const [loadingJava, setLoadingJava] = useState(false)
   const [showJavaHint, setShowJavaHint] = useState(false)
   const [showDockerMirrorModal, setShowDockerMirrorModal] = useState(false)
@@ -436,17 +435,10 @@ function ProjectDetail({ toast }) {
   const loadJavaList = async () => {
     setLoadingJava(true)
     try {
-      const [installedRes, availableRes] = await Promise.all([
-        fetch(`${API_BASE}/api/java/list`),
-        fetch(`${API_BASE}/api/java/available`)
-      ])
+      const installedRes = await fetch(`${API_BASE}/api/java/list`)
       if (installedRes.ok) {
         const data = await installedRes.json()
         setInstalledJavas(data.javas || [])
-      }
-      if (availableRes.ok) {
-        const data = await availableRes.json()
-        setAvailableJavas(data.versions || [])
       }
     } catch {
       toast.error('加载 Java 信息失败')
@@ -471,23 +463,6 @@ function ProjectDetail({ toast }) {
       toast.success('Java 环境已更新')
     } catch (err) {
       toast.error(err.message || '设置失败')
-    }
-  }
-
-  const handleDownloadJava = async (ver) => {
-    try {
-      const response = await fetch(`${API_BASE}/api/java/download`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ version: ver.version, downloadUrl: ver.downloadUrl, fileName: ver.fileName })
-      })
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error)
-      }
-      toast.success(`Java ${ver.version} 开始下载`)
-    } catch (err) {
-      toast.error(err.message || '下载失败')
     }
   }
 
@@ -1203,32 +1178,6 @@ function ProjectDetail({ toast }) {
                         ))}
                       </div>
                     )}
-                  </div>
-                  <div className="plugins-section">
-                    <h3>下载 Java (Adoptium)</h3>
-                    {availableJavas.length === 0 ? (
-                      <p className="empty-hint">无法获取可用版本</p>
-                    ) : (
-                      <div className="versions-list">
-                        {availableJavas.map((v) => (
-                          <div key={v.version} className="version-item">
-                            <div className="version-info">
-                              <span className="version-name">Java {v.version}</span>
-                              <span className="version-game">{v.fullVersion} ({(v.size / 1024 / 1024).toFixed(0)} MB)</span>
-                            </div>
-                            <button
-                              className="btn-download-version"
-                              onClick={() => handleDownloadJava(v)}
-                              disabled={!v.downloadUrl}
-                            >
-                              <Download size={14} />
-                              <span>下载</span>
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                    <small style={{ marginTop: '8px', display: 'block' }}>下载完成后刷新此页面即可选择使用</small>
                   </div>
                 </>
               )}
