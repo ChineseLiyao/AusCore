@@ -87,10 +87,6 @@ function Login({ onLogin }) {
               登录
             </button>
           </form>
-
-          <p className="login-register">
-            还没有账户？<span className="login-link" onClick={() => navigate('/register')}>现在注册</span>
-          </p>
         </div>
       </div>
 
