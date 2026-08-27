@@ -103,3 +103,198 @@
   background: hsl(354, 88%, 71%);
   color: white;
 }
+
+.settings-button {
+  width: 100%;
+  padding: 10px;
+  background: transparent;
+  color: hsl(272, 15%, 42%);
+  border: 1px solid hsl(0, 0%, 85%);
+  border-radius: 4px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.settings-button:hover {
+  border-color: hsl(208, 40%, 35%);
+  color: hsl(208, 40%, 35%);
+}
+
+/* 服务器设置弹窗 */
+.settings-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.settings-label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+}
+
+.settings-label span {
+  font-size: 13px;
+  font-weight: 500;
+  color: hsl(272, 15%, 35%);
+}
+
+.settings-input {
+  padding: 9px 12px;
+  border: 1px solid hsl(0, 0%, 85%);
+  border-radius: 4px;
+  font-size: 14px;
+  font-family: inherit;
+  outline: none;
+  transition: all 0.2s;
+}
+
+.settings-input:focus {
+  border-color: hsl(208, 40%, 35%);
+  box-shadow: 0 0 0 2px hsla(208, 40%, 35%, 0.1);
+}
+
+.settings-row {
+  display: flex;
+  gap: 14px;
+  align-items: flex-end;
+}
+
+.settings-check {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: hsl(272, 15%, 42%);
+  padding-bottom: 9px;
+  cursor: pointer;
+}
+
+.settings-check input {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+.settings-current {
+  font-size: 12px;
+  color: hsl(272, 15%, 60%);
+  margin: 0;
+  word-break: break-all;
+}
+
+.settings-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+/* 弹窗基础样式（侧边栏自包含，避免依赖页面级 CSS） */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background: white;
+  border-radius: 8px;
+  width: 90%;
+  max-width: 500px;
+  max-height: 80vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid hsl(0, 0%, 90%);
+}
+
+.modal-header h2 {
+  font-size: 18px;
+  font-weight: 600;
+  color: hsl(272, 15%, 20%);
+  margin: 0;
+}
+
+.btn-close-modal {
+  background: none;
+  border: none;
+  color: hsl(272, 15%, 60%);
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.btn-close-modal:hover {
+  background: hsl(272, 15%, 95%);
+  color: hsl(272, 15%, 20%);
+}
+
+.modal-body {
+  padding: 20px;
+  overflow-y: auto;
+}
+
+.modal-hint {
+  font-size: 14px;
+  color: hsl(272, 15%, 60%);
+  margin: 0 0 16px 0;
+}
+
+.btn-save {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: hsl(208, 40%, 35%);
+  color: white;
+  white-space: nowrap;
+}
+
+.btn-save:hover:not(:disabled) { background: hsl(208, 40%, 30%); }
+.btn-save:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.btn-cancel {
+  padding: 10px 20px;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: white;
+  border: 1px solid hsl(0, 0%, 85%);
+  color: hsl(272, 15%, 42%);
+  white-space: nowrap;
+}
+
+.btn-cancel:hover { border-color: hsl(272, 15%, 42%); }
