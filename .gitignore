@@ -2,3 +2,10 @@ node_modules
 dist
 .DS_Store
 *.log
+
+# 运行时数据（账号、项目、上传、Java 等，不入库）
+server/users.json
+server/projects.json
+server/projects/
+server/uploads/
+server/java/

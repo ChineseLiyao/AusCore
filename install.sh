@@ -94,9 +94,22 @@ install_nodejs() {
     print_success "Node.js $(node -v) 安装完成"
 }
 
+# 配置 npm 镜像源（国内加速，可设 AUSCORE_NO_MIRROR=1 跳过）
+configure_npm_mirror() {
+    if [ "${AUSCORE_NO_MIRROR:-0}" = "1" ]; then
+        print_warning "已跳过 npm 镜像配置（AUSCORE_NO_MIRROR=1）"
+        return
+    fi
+
+    print_info "配置 npm 镜像源（npmmirror）..."
+    npm config set registry https://registry.npmmirror.com
+    # node-gyp 编译原生模块时下载 Node 头文件的镜像（npm 10+ 不再接受 disturl 配置项）
+    export NODEJS_ORG_MIRROR=https://npmmirror.com/mirrors/node
+    print_success "npm 镜像源配置完成"
+}
+
 # 安装 Git
-install_git() {
-    if command -v git &> /dev/null; then
+install_git() {    if command -v git &> /dev/null; then
         print_success "Git 已安装"
         return
     fi
@@ -324,6 +337,7 @@ main() {
     check_root
     detect_os
     install_nodejs
+    configure_npm_mirror
     install_git
     install_build_tools
     install_pm2
