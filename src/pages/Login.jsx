@@ -1,98 +1,8 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Eye, EyeOff } from 'lucide-react'
 import './Login.css'
 import { API_BASE } from '../config'
-
-function EqualizerBackground() {
-  const canvasRef = useRef(null)
-
-  useEffect(() => {
-    const canvas = canvasRef.current
-    const ctx = canvas.getContext('2d')
-    let animId
-
-    const resize = () => {
-      canvas.width = window.innerWidth
-      canvas.height = window.innerHeight
-    }
-    resize()
-    window.addEventListener('resize', resize)
-
-    // 竖条配置
-    const barCount = 200
-    const bars = []
-    for (let i = 0; i < barCount; i++) {
-      bars.push({
-        // 灰白条
-        whiteHeight: Math.random() * 0.4 + 0.15,
-        whiteSpeed: Math.random() * 0.8 + 0.4,
-        whitePhase: Math.random() * Math.PI * 2,
-        // 红条
-        redHeight: Math.random() * 0.2 + 0.05,
-        redSpeed: Math.random() * 0.6 + 0.3,
-        redPhase: Math.random() * Math.PI * 2,
-        redDelay: Math.random() * 1.5 + 0.5,
-      })
-    }
-
-    const draw = (time) => {
-      const t = time / 1000
-      const W = canvas.width
-      const H = canvas.height
-      ctx.clearRect(0, 0, W, H)
-
-      // 白色背景
-      ctx.fillStyle = '#f5f5f7'
-      ctx.fillRect(0, 0, W, H)
-
-      const gap = 1
-      const barW = Math.max(((W - gap * barCount) / barCount), 2)
-      const totalBarW = barW + gap
-
-      for (let i = 0; i < barCount; i++) {
-        const b = bars[i]
-        const x = i * totalBarW + gap / 2
-
-        // 蓝色条高度 - 从底部往上
-        const whiteH = (0.15 + b.whiteHeight * (0.5 + 0.5 * Math.sin(t * b.whiteSpeed + b.whitePhase))) * H
-        const whiteY = H - whiteH
-
-        // 蓝灰渐变
-        const whiteGrad = ctx.createLinearGradient(x, whiteY, x, H)
-        whiteGrad.addColorStop(0, 'rgba(70, 110, 150, 0.5)')
-        whiteGrad.addColorStop(0.5, 'rgba(90, 130, 170, 0.35)')
-        whiteGrad.addColorStop(1, 'rgba(110, 150, 190, 0.2)')
-        ctx.fillStyle = whiteGrad
-        ctx.fillRect(x, whiteY, barW, whiteH)
-
-        // 红条 - 在下面追着蓝条
-        const redMax = whiteH * 0.6
-        const redH = (0.08 + b.redHeight * (0.5 + 0.5 * Math.sin(t * b.redSpeed + b.redPhase + b.redDelay))) * H
-        const clampedRedH = Math.min(redH, redMax)
-        const redY = H - clampedRedH
-
-        const redGrad = ctx.createLinearGradient(x, redY, x, H)
-        redGrad.addColorStop(0, 'rgba(220, 70, 70, 0.6)')
-        redGrad.addColorStop(0.6, 'rgba(200, 50, 50, 0.45)')
-        redGrad.addColorStop(1, 'rgba(180, 40, 40, 0.3)')
-        ctx.fillStyle = redGrad
-        ctx.fillRect(x, redY, barW, clampedRedH)
-      }
-
-      animId = requestAnimationFrame(draw)
-    }
-
-    animId = requestAnimationFrame(draw)
-
-    return () => {
-      cancelAnimationFrame(animId)
-      window.removeEventListener('resize', resize)
-    }
-  }, [])
-
-  return <canvas ref={canvasRef} className="equalizer-bg" />
-}
 
 function Login({ onLogin }) {
   const [username, setUsername] = useState('')
@@ -135,12 +45,11 @@ function Login({ onLogin }) {
   }
 
   return (
-    <div className="login-container">
-      <EqualizerBackground />
-      <div className="login-wrapper">
+    <div className="login-page">
+      <div className="login-panel">
         <div className="login-card">
-          <h1 className="login-title">AusCore</h1>
-          
+          <h1 className="login-title">账户登录</h1>
+
           <form onSubmit={handleSubmit} className="login-form">
             <div className="form-group">
               <label>用户名 <span className="required">*</span></label>
@@ -178,9 +87,14 @@ function Login({ onLogin }) {
               登录
             </button>
           </form>
+
+          <p className="login-register">
+            还没有账户？<span className="login-link" onClick={() => navigate('/register')}>现在注册</span>
+          </p>
         </div>
-        <p className="login-footer">AusCore Project</p>
       </div>
+
+      <div className="login-visual" />
     </div>
   )
 }

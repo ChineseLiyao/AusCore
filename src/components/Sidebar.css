@@ -285,6 +285,9 @@
 .btn-save:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .btn-cancel {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   padding: 10px 20px;
   border-radius: 4px;
   font-size: 14px;
@@ -298,3 +301,98 @@
 }
 
 .btn-cancel:hover { border-color: hsl(272, 15%, 42%); }
+
+/* 更新按钮 */
+.update-button {
+  width: 100%;
+  padding: 10px;
+  background: transparent;
+  color: hsl(272, 15%, 42%);
+  border: 1px solid hsl(0, 0%, 85%);
+  border-radius: 4px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.update-button:hover {
+  border-color: hsl(208, 40%, 35%);
+  color: hsl(208, 40%, 35%);
+}
+
+.update-button.has-update {
+  border-color: hsl(38, 90%, 50%);
+  color: hsl(38, 90%, 45%);
+  background: hsl(38, 90%, 97%);
+}
+
+.update-button.has-update:hover {
+  background: hsl(38, 90%, 92%);
+}
+
+.spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* 更新弹窗 */
+.update-info {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.update-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  background: hsl(272, 15%, 97%);
+  border-radius: 6px;
+}
+
+.update-label {
+  font-size: 13px;
+  color: hsl(272, 15%, 50%);
+  flex-shrink: 0;
+}
+
+.update-value {
+  font-size: 13px;
+  font-weight: 500;
+  color: hsl(272, 15%, 20%);
+  word-break: break-all;
+  text-align: right;
+}
+
+.update-status {
+  margin: 0;
+  font-size: 13px;
+  padding: 10px 12px;
+  border-radius: 6px;
+}
+
+.update-status.available {
+  background: hsl(38, 90%, 96%);
+  color: hsl(38, 90%, 45%);
+}
+
+.update-status.ok {
+  background: hsl(142, 76%, 96%);
+  color: hsl(142, 76%, 36%);
+}
+
+.update-status.error {
+  background: hsl(354, 88%, 96%);
+  color: hsl(354, 88%, 45%);
+}

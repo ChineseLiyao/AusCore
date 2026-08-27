@@ -115,7 +115,7 @@ function MainLayout({ onLogout }) {
 
   return (
     <div style={{ display: 'flex', width: '100vw', height: '100vh' }}>
-      <Sidebar onLogout={onLogout} />
+      <Sidebar onLogout={onLogout} toast={{ success, error: showError, warning }} />
       <div style={{ flex: 1, overflow: 'auto', background: 'hsl(0, 0%, 96%)' }}>
         <Breadcrumb />
         <Suspense fallback={

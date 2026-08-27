@@ -1,6 +1,6 @@
-import { Home, LogOut, FolderKanban, FileText, Terminal, User, Settings, X } from 'lucide-react'
+import { Home, LogOut, FolderKanban, FileText, Terminal, User, Settings, X, RefreshCw, DownloadCloud } from 'lucide-react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import './Sidebar.css'
 import { API_BASE, getServerAddr, setServerAddr } from '../config'
 
@@ -17,11 +17,17 @@ function parseServerAddr(value) {
   }
 }
 
-function Sidebar({ onLogout }) {
+function Sidebar({ onLogout, toast }) {
   const navigate = useNavigate()
   const location = useLocation()
   const [hostname, setHostname] = useState('')
   const [showSettings, setShowSettings] = useState(false)
+  const [showUpdateModal, setShowUpdateModal] = useState(false)
+  const [updateInfo, setUpdateInfo] = useState(null)
+  const [checkingUpdate, setCheckingUpdate] = useState(false)
+  const [updating, setUpdating] = useState(false)
+  const checkIntervalRef = useRef(null)
+  const pollTimerRef = useRef(null)
 
   const saved = parseServerAddr(getServerAddr())
   const [settings, setSettings] = useState({
@@ -36,6 +42,76 @@ function Sidebar({ onLogout }) {
       .then(data => setHostname(data.hostname))
       .catch(() => {})
   }, [])
+
+  const checkUpdate = async (silent = true) => {
+    if (checkingUpdate) return
+    setCheckingUpdate(true)
+    try {
+      const res = await fetch(`${API_BASE}/api/update/check`)
+      if (res.ok) {
+        const data = await res.json()
+        setUpdateInfo(data)
+        if (!silent && data.hasUpdate) {
+          toast?.success('发现新版本，可进行更新')
+        }
+        return data
+      }
+    } catch {
+      /* ignore */
+    } finally {
+      setCheckingUpdate(false)
+    }
+    return null
+  }
+
+  // 启动时自动检测，之后每 30 分钟检测一次
+  useEffect(() => {
+    checkUpdate()
+    checkIntervalRef.current = setInterval(() => checkUpdate(), 30 * 60 * 1000)
+    return () => {
+      clearInterval(checkIntervalRef.current)
+      clearInterval(pollTimerRef.current)
+    }
+  }, [])
+
+  const handleApplyUpdate = async () => {
+    setUpdating(true)
+    try {
+      const res = await fetch(`${API_BASE}/api/update/apply`, { method: 'POST' })
+      const data = await res.json()
+      if (!res.ok) {
+        toast?.error(data.error || '更新失败')
+        setUpdating(false)
+        return
+      }
+      toast?.success('更新已开始，服务将在完成后自动重启')
+      setShowUpdateModal(false)
+
+      // 轮询等待更新完成（服务重启后本地版本与远程一致即完成）
+      let tries = 0
+      const poll = async () => {
+        tries++
+        try {
+          const d = await checkUpdate(true)
+          if (d && d.installed?.commit && d.latest?.commit && d.installed.commit === d.latest.commit) {
+            toast?.success('更新完成，正在刷新页面')
+            window.location.reload()
+            return
+          }
+        } catch { /* server restarted */ }
+        if (tries < 60) {
+          pollTimerRef.current = setTimeout(poll, 5000)
+        } else {
+          setUpdating(false)
+          toast?.warning('更新状态未知，请手动刷新页面查看')
+        }
+      }
+      poll()
+    } catch (err) {
+      setUpdating(false)
+      toast?.error('更新请求失败')
+    }
+  }
 
   const handleSaveSettings = () => {
     const host = settings.host.trim()
@@ -87,6 +163,19 @@ function Sidebar({ onLogout }) {
           <User size={16} />
           <span>{hostname || '...'}</span>
         </div>
+        <button
+          className={`update-button ${updateInfo?.hasUpdate ? 'has-update' : ''}`}
+          onClick={() => setShowUpdateModal(true)}
+        >
+          {updateInfo?.hasUpdate ? <DownloadCloud size={16} /> : <RefreshCw size={16} className={checkingUpdate ? 'spin' : ''} />}
+          <span>
+            {updating
+              ? '更新中...'
+              : updateInfo?.hasUpdate
+                ? '有新版本'
+                : '检查更新'}
+          </span>
+        </button>
         <button className="settings-button" onClick={() => setShowSettings(true)}>
           <Settings size={16} />
           <span>服务器设置</span>
@@ -96,6 +185,54 @@ function Sidebar({ onLogout }) {
           <span>退出登录</span>
         </button>
       </div>
+
+      {showUpdateModal && (
+        <div className="modal-overlay" onClick={() => setShowUpdateModal(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '440px' }}>
+            <div className="modal-header">
+              <h2>系统更新</h2>
+              <button className="btn-close-modal" onClick={() => setShowUpdateModal(false)}>
+                <X size={20} />
+              </button>
+            </div>
+            <div className="modal-body">
+              {updateInfo ? (
+                <div className="update-info">
+                  <div className="update-row">
+                    <span className="update-label">当前版本</span>
+                    <span className="update-value">v{updateInfo.installed.version} ({updateInfo.installed.short || 'unknown'})</span>
+                  </div>
+                  <div className="update-row">
+                    <span className="update-label">最新版本</span>
+                    <span className="update-value">{updateInfo.latest.short || updateInfo.latest.commit || 'unknown'}</span>
+                  </div>
+                  {updateInfo.error ? (
+                    <p className="update-status error">{updateInfo.error}</p>
+                  ) : updateInfo.hasUpdate ? (
+                    <p className="update-status available">发现新版本，点击下方按钮开始更新</p>
+                  ) : (
+                    <p className="update-status ok">已是最新版本</p>
+                  )}
+                </div>
+              ) : (
+                <p className="modal-hint">正在获取版本信息...</p>
+              )}
+              <div className="settings-actions">
+                <button className="btn-cancel" onClick={() => { checkUpdate(false); }} disabled={checkingUpdate}>
+                  <RefreshCw size={14} className={checkingUpdate ? 'spin' : ''} />
+                  <span>重新检测</span>
+                </button>
+                {updateInfo?.hasUpdate && !updating && (
+                  <button className="btn-save" onClick={handleApplyUpdate}>
+                    <DownloadCloud size={14} />
+                    <span>立即更新</span>
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showSettings && (
         <div className="modal-overlay" onClick={() => setShowSettings(false)}>

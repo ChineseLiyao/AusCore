@@ -91,83 +91,90 @@ function Register({ onRegister }) {
   }
 
   return (
-    <div className="register-container">
-      <div className="register-card">
-        <h1 className="register-title">AusCore</h1>
-        <p className="register-subtitle">服务器管理面板</p>
-        
-        <form onSubmit={handleSubmit} className="register-form">
-          <div className="form-group">
-            <label>用户名</label>
-            <input
-              type="text"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              placeholder="请输入用户名"
-            />
-          </div>
+    <div className="register-page">
+      <div className="register-panel">
+        <div className="register-card">
+          <h1 className="register-title">账户注册</h1>
 
-          <div className="form-group">
-            <label>密码</label>
-            <div className="password-input-wrapper">
+          <form onSubmit={handleSubmit} className="register-form">
+            <div className="form-group">
+              <label>用户名 <span className="required">*</span></label>
               <input
-                type={showPassword ? 'text' : 'password'}
-                value={password}
-                onChange={handlePasswordChange}
-                placeholder="请输入密码（至少8个字符）"
+                type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder="请输入用户名"
               />
-              <button
-                type="button"
-                className="password-toggle"
-                onClick={() => setShowPassword(!showPassword)}
-              >
-                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-              </button>
             </div>
-            {password && (
-              <div className="password-strength">
-                <div className="strength-bar">
-                  <div 
-                    className="strength-fill" 
-                    style={{ 
-                      width: `${(passwordStrength / 5) * 100}%`,
-                      backgroundColor: getStrengthColor()
-                    }}
-                  ></div>
-                </div>
-                <span style={{ color: getStrengthColor() }}>
-                  密码强度: {getStrengthText()}
-                </span>
+
+            <div className="form-group">
+              <label>密码 <span className="required">*</span></label>
+              <div className="password-input-wrapper">
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={handlePasswordChange}
+                  placeholder="请输入密码（至少8个字符）"
+                />
+                <button
+                  type="button"
+                  className="password-toggle"
+                  onClick={() => setShowPassword(!showPassword)}
+                >
+                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
               </div>
-            )}
-          </div>
-
-          <div className="form-group">
-            <label>确认密码</label>
-            <div className="password-input-wrapper">
-              <input
-                type={showConfirmPassword ? 'text' : 'password'}
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                placeholder="请再次输入密码"
-              />
-              <button
-                type="button"
-                className="password-toggle"
-                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-              >
-                {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-              </button>
+              {password && (
+                <div className="password-strength">
+                  <div className="strength-bar">
+                    <div 
+                      className="strength-fill" 
+                      style={{ 
+                        width: `${(passwordStrength / 5) * 100}%`,
+                        backgroundColor: getStrengthColor()
+                      }}
+                    ></div>
+                  </div>
+                  <span style={{ color: getStrengthColor() }}>
+                    密码强度: {getStrengthText()}
+                  </span>
+                </div>
+              )}
             </div>
-          </div>
 
-          {error && <div className="error-message">{error}</div>}
+            <div className="form-group">
+              <label>确认密码 <span className="required">*</span></label>
+              <div className="password-input-wrapper">
+                <input
+                  type={showConfirmPassword ? 'text' : 'password'}
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="请再次输入密码"
+                />
+                <button
+                  type="button"
+                  className="password-toggle"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                >
+                  {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              </div>
+            </div>
 
-          <button type="submit" className="submit-button">
-            创建管理员账户
-          </button>
-        </form>
+            {error && <div className="error-message">{error}</div>}
+
+            <button type="submit" className="submit-button">
+              创建管理员账户
+            </button>
+          </form>
+
+          <p className="register-login">
+            已有账户？<span className="register-link" onClick={() => navigate('/login')}>现在登录</span>
+          </p>
+        </div>
       </div>
+
+      <div className="register-visual" />
     </div>
   )
 }

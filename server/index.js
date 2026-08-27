@@ -2708,6 +2708,135 @@ app.get('/api/auth/check', async (req, res) => {
   }
 })
 
+// ---- 更新检测与自动更新 ----
+const PROJECT_ROOT = path.join(BASE_PATH, '..')
+const GIT_REPO = 'https://github.com/ChineseLiyao/AusCore.git'
+const GIT_BRANCH = 'main'
+const UPDATE_CHECK_TTL = 60 * 1000
+let updateCheckCache = null
+let updateCheckTime = 0
+
+const updateState = {
+  status: 'idle', // idle | running | done | error
+  message: '',
+  startedAt: null
+}
+
+function getLocalVersion() {
+  return (async () => {
+    try {
+      const commit = (await execAsync('git rev-parse HEAD', { cwd: PROJECT_ROOT })).stdout.trim()
+      const short = (await execAsync('git rev-parse --short HEAD', { cwd: PROJECT_ROOT })).stdout.trim()
+      const branch = (await execAsync('git rev-parse --abbrev-ref HEAD', { cwd: PROJECT_ROOT })).stdout.trim()
+      let version = 'unknown'
+      try {
+        version = JSON.parse(await fs.promises.readFile(path.join(PROJECT_ROOT, 'package.json'), 'utf8')).version || 'unknown'
+      } catch { /* ignore */ }
+      return { version, commit, short, branch }
+    } catch {
+      return { version: 'unknown', commit: '', short: '', branch: '' }
+    }
+  })()
+}
+
+function getRemoteCommit(branch) {
+  return new Promise((resolve, reject) => {
+    execAsync(`git ls-remote ${GIT_REPO} refs/heads/${branch}`)
+      .then(({ stdout }) => {
+        const hash = stdout.trim().split(/\s+/)[0]
+        hash ? resolve(hash) : reject(new Error('empty response'))
+      })
+      .catch(reject)
+  })
+}
+
+// 检查更新
+app.get('/api/update/check', async (req, res) => {
+  try {
+    const now = Date.now()
+    if (updateCheckCache && (now - updateCheckTime) < UPDATE_CHECK_TTL) {
+      return res.json(updateCheckCache)
+    }
+
+    const installed = await getLocalVersion()
+    const latest = { commit: '', short: '', branch: GIT_BRANCH }
+    let hasUpdate = false
+    let error = null
+
+    if (!installed.commit) {
+      error = '未检测到 Git 仓库'
+    } else {
+      try {
+        const remoteCommit = await Promise.race([
+          getRemoteCommit(GIT_BRANCH),
+          new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 15000))
+        ])
+        latest.commit = remoteCommit
+        latest.short = remoteCommit.slice(0, 7)
+        hasUpdate = remoteCommit !== installed.commit
+      } catch {
+        error = '无法连接远程仓库'
+      }
+    }
+
+    updateCheckCache = { installed, latest, hasUpdate, error, checkedAt: now }
+    updateCheckTime = now
+    res.json(updateCheckCache)
+  } catch (error) {
+    res.status(500).json({ error: error.message })
+  }
+})
+
+// 更新状态
+app.get('/api/update/status', (req, res) => {
+  res.json(updateState)
+})
+
+// 执行更新
+app.post('/api/update/apply', async (req, res) => {
+  try {
+    if (process.platform === 'win32') {
+      return res.status(400).json({ error: '更新需在 Linux 服务器上执行' })
+    }
+    if (updateState.status === 'running') {
+      return res.status(400).json({ error: '更新正在进行中，请稍候' })
+    }
+
+    const scriptPath = path.join(PROJECT_ROOT, 'update.sh')
+    if (!fs.existsSync(scriptPath)) {
+      return res.status(400).json({ error: '缺少 update.sh 更新脚本' })
+    }
+
+    const logFile = path.join(BASE_PATH, 'update.log')
+
+    updateState.status = 'running'
+    updateState.message = '正在拉取代码并构建...'
+    updateState.startedAt = Date.now()
+
+    const child = spawn('bash', [scriptPath, GIT_BRANCH], {
+      cwd: PROJECT_ROOT,
+      detached: true,
+      stdio: ['ignore', fs.openSync(logFile, 'a'), fs.openSync(logFile, 'a')]
+    })
+    child.on('exit', (code) => {
+      if (code === 0) {
+        updateState.status = 'done'
+        updateState.message = '更新完成，服务已重启'
+      } else {
+        updateState.status = 'error'
+        updateState.message = `更新失败（退出码 ${code}），请查看 update.log`
+      }
+    })
+    child.unref()
+
+    res.json({ success: true, message: '更新已开始，服务将在完成后自动重启' })
+  } catch (error) {
+    updateState.status = 'error'
+    updateState.message = error.message
+    res.status(500).json({ error: error.message })
+  }
+})
+
 // ---- 生产环境：托管前端构建产物（dist/），单端口部署 ----
 const DIST_DIR = path.join(BASE_PATH, '..', 'dist')
 
