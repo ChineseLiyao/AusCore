@@ -132,12 +132,42 @@ install_pm2() {
 }
 
 # 克隆项目
+GITHUB_REPO="https://github.com/ChineseLiyao/AusCore.git"
+# 备用镜像（国内加速，按需增删）
+REPO_MIRRORS=(
+    "https://gh-proxy.com/https://github.com/ChineseLiyao/AusCore.git"
+    "https://ghfast.top/https://github.com/ChineseLiyao/AusCore.git"
+    "https://ghproxy.net/https://github.com/ChineseLiyao/AusCore.git"
+)
+
+# 带超时与镜像回退的克隆
+git_clone_with_fallback() {
+    local dest="$1"
+    local urls=("$GITHUB_REPO" "${REPO_MIRRORS[@]}")
+    local ok=false
+
+    for url in "${urls[@]}"; do
+        print_info "尝试克隆: $url"
+        if timeout 120 git clone "$url" "$dest"; then
+            ok=true
+            break
+        fi
+        print_warning "该地址克隆失败，尝试下一个..."
+        rm -rf "$dest"
+    done
+
+    if [ "$ok" != "true" ]; then
+        print_error "无法克隆项目，请检查网络后手动执行: git clone $GITHUB_REPO $dest"
+        exit 1
+    fi
+}
+
 clone_project() {
     INSTALL_DIR="/opt/auscore"
-    
-    if [ -d "$INSTALL_DIR" ]; then
+
+    if [ -d "$INSTALL_DIR/.git" ]; then
         print_warning "目录 $INSTALL_DIR 已存在"
-        
+
         # 检测是否为交互式终端
         if [ -t 0 ]; then
             read -p "是否删除并重新安装? (y/N): " -n 1 -r
@@ -147,19 +177,19 @@ clone_project() {
             else
                 print_info "使用现有目录并更新代码"
                 cd "$INSTALL_DIR"
-                git pull
+                git pull || print_warning "更新代码失败，将使用现有代码继续"
                 return
             fi
         else
             print_info "非交互式终端，使用现有目录并更新代码"
             cd "$INSTALL_DIR"
-            git pull
+            git pull || print_warning "更新代码失败，将使用现有代码继续"
             return
         fi
     fi
-    
+
     print_info "克隆项目到 $INSTALL_DIR..."
-    git clone https://github.com/ChineseLiyao/AusCore.git "$INSTALL_DIR"
+    git_clone_with_fallback "$INSTALL_DIR"
     cd "$INSTALL_DIR"
     print_success "项目克隆完成"
 }
