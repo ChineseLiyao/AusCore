@@ -18,3 +18,57 @@ body {
   width: 100vw;
   height: 100vh;
 }
+
+/* 去掉原生滚动条（保留滚动功能） */
+* {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE / Edge */
+}
+
+*::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none; /* Chrome / Safari */
+}
+
+/* 移动端顶部栏（桌面端隐藏） */
+.mobile-header {
+  display: none;
+}
+
+.mobile-menu-btn {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: hsl(208, 40%, 35%);
+  padding: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+}
+
+.mobile-menu-btn:active {
+  background: hsl(208, 40%, 95%);
+}
+
+.mobile-header-title {
+  font-size: 17px;
+  font-weight: 700;
+  color: hsl(208, 40%, 35%);
+}
+
+@media (max-width: 768px) {
+  .mobile-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 16px;
+    background: white;
+    border-bottom: 1px solid hsl(0, 0%, 90%);
+    position: sticky;
+    top: 0;
+    z-index: 900;
+  }
+}
+

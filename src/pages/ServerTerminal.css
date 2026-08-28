@@ -54,3 +54,22 @@
 .xterm-container .xterm-char-measure-element {
   line-height: 1.4 !important;
 }
+
+/* 移动端适配 */
+@media (max-width: 768px) {
+  .server-terminal-page {
+    padding: 16px;
+  }
+
+  .terminal-page-header h1 {
+    font-size: 22px;
+  }
+
+  .terminal-hint {
+    display: none;
+  }
+
+  .xterm-container {
+    padding: 8px 8px 16px 8px;
+  }
+}

@@ -466,3 +466,38 @@
 .path-option svg {
   color: hsl(208, 40%, 35%);
 }
+
+/* 移动端适配 */
+@media (max-width: 768px) {
+  .files-page {
+    padding: 16px;
+  }
+
+  .files-title {
+    font-size: 22px;
+  }
+
+  .files-toolbar {
+    flex-wrap: wrap;
+  }
+
+  .files-content {
+    padding: 8px;
+  }
+
+  .file-item {
+    flex-wrap: wrap;
+    row-gap: 8px;
+  }
+
+  .file-info {
+    min-width: 0;
+  }
+
+  .file-actions {
+    opacity: 1;
+    min-width: 100%;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+}

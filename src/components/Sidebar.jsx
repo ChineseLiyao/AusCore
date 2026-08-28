@@ -17,7 +17,7 @@ function parseServerAddr(value) {
   }
 }
 
-function Sidebar({ onLogout, toast }) {
+function Sidebar({ onLogout, toast, open, onClose }) {
   const navigate = useNavigate()
   const location = useLocation()
   const [hostname, setHostname] = useState('')
@@ -139,24 +139,26 @@ function Sidebar({ onLogout, toast }) {
   }
 
   return (
-    <div className="sidebar">
-      <div className="sidebar-header">
-        <h2 className="sidebar-title">AusCore</h2>
-        <p className="sidebar-version">Alpha v1.0.1</p>
-      </div>
+    <>
+      {open && <div className="sidebar-overlay" onClick={onClose} />}
+      <div className={`sidebar ${open ? 'open' : ''}`}>
+        <div className="sidebar-header">
+          <h2 className="sidebar-title">AusCore</h2>
+          <p className="sidebar-version">Alpha v1.0.1</p>
+        </div>
 
-      <nav className="sidebar-nav">
-        {menuItems.map(item => (
-          <div
-            key={item.id}
-            className={`nav-item ${location.pathname === item.path ? 'active' : ''}`}
-            onClick={() => navigate(item.path)}
-          >
-            <span className="nav-icon">{item.icon}</span>
-            <span className="nav-label">{item.label}</span>
-          </div>
-        ))}
-      </nav>
+        <nav className="sidebar-nav">
+          {menuItems.map(item => (
+            <div
+              key={item.id}
+              className={`nav-item ${location.pathname === item.path ? 'active' : ''}`}
+              onClick={() => { navigate(item.path); onClose?.() }}
+            >
+              <span className="nav-icon">{item.icon}</span>
+              <span className="nav-label">{item.label}</span>
+            </div>
+          ))}
+        </nav>
 
       <div className="sidebar-footer">
         <div className="sidebar-user">
@@ -288,7 +290,8 @@ function Sidebar({ onLogout, toast }) {
           </div>
         </div>
       )}
-    </div>
+      </div>
+    </>
   )
 }
 

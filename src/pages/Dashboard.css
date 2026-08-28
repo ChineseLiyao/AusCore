@@ -43,4 +43,13 @@
   .dashboard-logo {
     max-width: 90%;
   }
+
+  .dashboard-content {
+    padding: 16px;
+  }
+
+  .metrics-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
 }

@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { useState, useEffect, useRef, lazy, Suspense } from 'react'
+import { Menu } from 'lucide-react'
 import Register from './pages/Register'
 import Login from './pages/Login'
 import Sidebar from './components/Sidebar'
@@ -31,6 +32,7 @@ function MainLayout({ onLogout }) {
     network: { download: 0, upload: 0, history: [] }
   })
   const [errorMsg, setErrorMsg] = useState(null)
+  const [sidebarOpen, setSidebarOpen] = useState(false)
   const intervalRef = useRef(null)
   const fetchingRef = useRef(false)
   const abortControllerRef = useRef(null)
@@ -115,8 +117,14 @@ function MainLayout({ onLogout }) {
 
   return (
     <div style={{ display: 'flex', width: '100vw', height: '100vh' }}>
-      <Sidebar onLogout={onLogout} toast={{ success, error: showError, warning }} />
+      <Sidebar onLogout={onLogout} toast={{ success, error: showError, warning }} open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       <div style={{ flex: 1, overflow: 'auto', background: 'hsl(0, 0%, 96%)' }}>
+        <div className="mobile-header">
+          <button className="mobile-menu-btn" onClick={() => setSidebarOpen(true)} aria-label="菜单">
+            <Menu size={24} />
+          </button>
+          <span className="mobile-header-title">AusCore</span>
+        </div>
         <Breadcrumb />
         <Suspense fallback={
           <div style={{ 

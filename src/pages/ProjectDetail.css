@@ -409,10 +409,40 @@ small { display: block; margin-top: 4px; font-size: 12px; color: hsl(272, 15%, 6
 
 /* 响应式 */
 @media (max-width: 768px) {
+  .project-detail-page {
+    padding: 16px;
+  }
+
+  .detail-header {
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .detail-header h1 {
+    font-size: 22px;
+  }
+
+  .header-actions {
+    flex-wrap: wrap;
+    width: 100%;
+  }
+
+  .btn-start, .btn-stop {
+    flex: 1;
+    justify-content: center;
+  }
+
   .detail-body {
     grid-template-columns: 1fr;
   }
+
   .detail-right {
     grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 480px) {
+  .detail-right {
+    grid-template-columns: 1fr;
   }
 }
