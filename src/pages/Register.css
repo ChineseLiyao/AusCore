@@ -150,22 +150,6 @@
   background: #1d4ed8;
 }
 
-.register-login {
-  margin-top: 32px;
-  text-align: center;
-  font-size: 15px;
-  color: #444;
-}
-
-.register-link {
-  color: #2563eb;
-  cursor: pointer;
-}
-
-.register-link:hover {
-  text-decoration: underline;
-}
-
 /* 右侧：自适应图片 */
 .register-visual {
   flex: 1.4 1 55%;

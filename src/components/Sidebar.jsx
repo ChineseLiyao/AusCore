@@ -142,7 +142,7 @@ function Sidebar({ onLogout, toast }) {
     <div className="sidebar">
       <div className="sidebar-header">
         <h2 className="sidebar-title">AusCore</h2>
-        <p className="sidebar-version">Alpha v1.0.0</p>
+        <p className="sidebar-version">Alpha v1.0.1</p>
       </div>
 
       <nav className="sidebar-nav">

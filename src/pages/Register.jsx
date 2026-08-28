@@ -167,10 +167,6 @@ function Register({ onRegister }) {
               创建管理员账户
             </button>
           </form>
-
-          <p className="register-login">
-            已有账户？<span className="register-link" onClick={() => navigate('/login')}>现在登录</span>
-          </p>
         </div>
       </div>
 
