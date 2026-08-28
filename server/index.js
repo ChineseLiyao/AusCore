@@ -2711,7 +2711,14 @@ app.get('/api/auth/check', async (req, res) => {
 // ---- 更新检测与自动更新 ----
 const PROJECT_ROOT = path.join(BASE_PATH, '..')
 const GIT_REPO = 'https://github.com/ChineseLiyao/AusCore.git'
+// 备用镜像（国内加速，按需增删）
+const GIT_MIRRORS = [
+  'https://gh-proxy.com/https://github.com/ChineseLiyao/AusCore.git',
+  'https://ghfast.top/https://github.com/ChineseLiyao/AusCore.git',
+  'https://ghproxy.net/https://github.com/ChineseLiyao/AusCore.git'
+]
 const GIT_BRANCH = 'main'
+const GIT_TIMEOUT = 5000
 const UPDATE_CHECK_TTL = 60 * 1000
 let updateCheckCache = null
 let updateCheckTime = 0
@@ -2739,15 +2746,26 @@ function getLocalVersion() {
   })()
 }
 
-function getRemoteCommit(branch) {
-  return new Promise((resolve, reject) => {
-    execAsync(`git ls-remote ${GIT_REPO} refs/heads/${branch}`)
-      .then(({ stdout }) => {
-        const hash = stdout.trim().split(/\s+/)[0]
-        hash ? resolve(hash) : reject(new Error('empty response'))
-      })
-      .catch(reject)
-  })
+// 5s 超时 + 镜像回退地获取远程最新提交
+async function getRemoteCommit(branch) {
+  const urls = [GIT_REPO, ...GIT_MIRRORS]
+  for (const url of urls) {
+    try {
+      const hash = await Promise.race([
+        new Promise((resolve, reject) => {
+          execAsync(`git ls-remote ${url} refs/heads/${branch}`)
+            .then(({ stdout }) => {
+              const h = stdout.trim().split(/\s+/)[0]
+              h ? resolve(h) : reject(new Error('empty response'))
+            })
+            .catch(reject)
+        }),
+        new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), GIT_TIMEOUT))
+      ])
+      return hash
+    } catch { /* 尝试下一个镜像 */ }
+  }
+  throw new Error('all mirrors failed')
 }
 
 // 检查更新
@@ -2767,10 +2785,7 @@ app.get('/api/update/check', async (req, res) => {
       error = '未检测到 Git 仓库'
     } else {
       try {
-        const remoteCommit = await Promise.race([
-          getRemoteCommit(GIT_BRANCH),
-          new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 15000))
-        ])
+        const remoteCommit = await getRemoteCommit(GIT_BRANCH)
         latest.commit = remoteCommit
         latest.short = remoteCommit.slice(0, 7)
         hasUpdate = remoteCommit !== installed.commit
