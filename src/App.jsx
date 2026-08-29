@@ -11,7 +11,7 @@ import DownloadManager from './components/DownloadManager'
 import UploadManager from './components/UploadManager'
 import { useToast } from './hooks/useToast'
 import { useConfirm } from './hooks/useConfirm'
-import { API_BASE, ROUTER_BASENAME } from './config'
+import { API_BASE, ROUTER_BASENAME, authFetch, getToken, clearToken } from './config'
 
 // 懒加载页面组件
 const Dashboard = lazy(() => import('./pages/Dashboard'))
@@ -54,7 +54,7 @@ function MainLayout({ onLogout }) {
     abortControllerRef.current = new AbortController()
     
     try {
-      const response = await fetch(API_URL, {
+      const response = await authFetch(API_URL, {
         signal: abortControllerRef.current.signal,
         timeout: 3000
       })
@@ -177,21 +177,41 @@ function App() {
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        // 先检查本地会话（同步）
-        const session = localStorage.getItem('auscore_session')
-        setIsAuthenticated(!!session)
-        
-        // 检查服务器是否有管理员账户（缩短超时）
-        const controller = new AbortController()
-        const timeout = setTimeout(() => controller.abort(), 2000)
-        const response = await fetch(`${API_BASE}/api/auth/check`, { signal: controller.signal })
-        clearTimeout(timeout)
-        const data = await response.json()
-        setIsRegistered(data.hasAdmin)
-      } catch (error) {
-        console.error('Auth check error:', error)
-        // 超时或失败时假设已注册，让用户去登录页
-        setIsRegistered(true)
+        // 校验登录态：仅当持有有效令牌时才认为已登录
+        const token = getToken()
+        if (!token) {
+          setIsAuthenticated(false)
+        } else {
+          try {
+            const controller = new AbortController()
+            const timeout = setTimeout(() => controller.abort(), 3000)
+            const meRes = await authFetch(`${API_BASE}/api/auth/me`, { signal: controller.signal })
+            clearTimeout(timeout)
+            if (meRes.ok) {
+              setIsAuthenticated(true)
+            } else {
+              clearToken()
+              setIsAuthenticated(false)
+            }
+          } catch {
+            // 网络失败时保留令牌，但视为未登录（避免误放行）
+            setIsAuthenticated(false)
+          }
+        }
+
+        // 检查服务器是否有管理员账户
+        try {
+          const controller = new AbortController()
+          const timeout = setTimeout(() => controller.abort(), 2000)
+          const response = await authFetch(`${API_BASE}/api/auth/check`, { signal: controller.signal })
+          clearTimeout(timeout)
+          const data = await response.json()
+          setIsRegistered(data.hasAdmin)
+        } catch (error) {
+          console.error('Auth check error:', error)
+          // 超时或失败时假设已注册，让用户去登录页
+          setIsRegistered(true)
+        }
       } finally {
         setIsLoading(false)
       }
@@ -201,7 +221,7 @@ function App() {
   }, [])
 
   const handleLogout = () => {
-    localStorage.removeItem('auscore_session')
+    clearToken()
     setIsAuthenticated(false)
   }
 

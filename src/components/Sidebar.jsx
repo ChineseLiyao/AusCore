@@ -2,7 +2,7 @@ import { Home, LogOut, FolderKanban, FileText, Terminal, User, Settings, X, Refr
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useState, useEffect, useRef } from 'react'
 import './Sidebar.css'
-import { API_BASE, getServerAddr, setServerAddr } from '../config'
+import { API_BASE, getServerAddr, setServerAddr, authFetch, clearToken } from '../config'
 
 function getDefaultAddr() {
   try {
@@ -49,7 +49,7 @@ function Sidebar({ onLogout, toast, open, onClose }) {
   })
 
   useEffect(() => {
-    fetch(`${API_BASE}/api/hostname`)
+    authFetch(`${API_BASE}/api/hostname`)
       .then(res => res.json())
       .then(data => setHostname(data.hostname))
       .catch(() => {})
@@ -59,7 +59,7 @@ function Sidebar({ onLogout, toast, open, onClose }) {
     if (checkingUpdate) return
     setCheckingUpdate(true)
     try {
-      const res = await fetch(`${API_BASE}/api/update/check`)
+      const res = await authFetch(`${API_BASE}/api/update/check`)
       if (res.ok) {
         const data = await res.json()
         setUpdateInfo(data)
@@ -89,7 +89,7 @@ function Sidebar({ onLogout, toast, open, onClose }) {
   const handleApplyUpdate = async () => {
     setUpdating(true)
     try {
-      const res = await fetch(`${API_BASE}/api/update/apply`, { method: 'POST' })
+      const res = await authFetch(`${API_BASE}/api/update/apply`, { method: 'POST' })
       const data = await res.json()
       if (!res.ok) {
         toast?.error(data.error || '更新失败')
@@ -146,8 +146,9 @@ function Sidebar({ onLogout, toast, open, onClose }) {
     { id: 'terminal', label: '终端', icon: <Terminal size={18} />, path: '/terminal' }
   ]
 
-  const handleLogout = () => {
-    localStorage.removeItem('auscore_session')
+  const handleLogout = async () => {
+    try { await authFetch(`${API_BASE}/api/auth/logout`, { method: 'POST' }) } catch {}
+    clearToken()
     onLogout()
   }
 

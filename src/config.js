@@ -66,3 +66,37 @@ export const API_BASE = resolveApiBase()
 export const WS_BASE = API_BASE.replace(/^http/, 'ws')
 // React Router 的 basename（安全入口前缀，未设置时为 '/'）
 export const ROUTER_BASENAME = getPathPrefix() || '/'
+
+// ---- 认证令牌 ----
+const TOKEN_KEY = 'auscore_token'
+
+export function getToken() {
+  try { return localStorage.getItem(TOKEN_KEY) || '' } catch { return '' }
+}
+
+export function setToken(token) {
+  try { localStorage.setItem(TOKEN_KEY, token || '') } catch {}
+}
+
+export function clearToken() {
+  try {
+    localStorage.removeItem(TOKEN_KEY)
+    localStorage.removeItem('auscore_session')
+    localStorage.removeItem('auscore_user')
+  } catch {}
+}
+
+// 自动附带 Authorization 头的 fetch 封装
+export function authFetch(url, options = {}) {
+  const headers = new Headers(options.headers || {})
+  const token = getToken()
+  if (token) headers.set('Authorization', 'Bearer ' + token)
+  return fetch(url, { ...options, headers })
+}
+
+// 生成带令牌的 WebSocket 地址
+export function wsUrl(path) {
+  const token = getToken()
+  const sep = path.includes('?') ? '&' : '?'
+  return token ? `${path}${sep}token=${encodeURIComponent(token)}` : path
+}

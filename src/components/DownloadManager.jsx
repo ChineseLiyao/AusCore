@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import './DownloadManager.css'
-import { API_BASE } from '../config'
+import { API_BASE, authFetch } from '../config'
 
 const DownloadIcon = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -46,7 +46,7 @@ function DownloadManager() {
       fetchingRef.current = true
       
       try {
-        const res = await fetch(`${API_BASE}/api/downloads`)
+        const res = await authFetch(`${API_BASE}/api/downloads`)
         if (res.ok) {
           const data = await res.json()
           const newTasks = data.tasks || []

@@ -133,13 +133,15 @@ function decodeWindowsOutput(buffer) {
 const wss = new WebSocketServer({ noServer: true })
 
 httpServer.on('upgrade', (req, socket, head) => {
-  let pathname = ''
+  let urlObj
   try {
-    pathname = new URL(req.url, `http://${req.headers.host}`).pathname
+    urlObj = new URL(req.url, `http://${req.headers.host}`)
   } catch {
     socket.destroy()
     return
   }
+  const pathname = urlObj.pathname
+
   // 安全入口：未携带部署前缀的 WebSocket 连接直接拒绝（握手前）
   if (SECRET_PREFIX) {
     const valid = pathname === SECRET_PREFIX || pathname.startsWith(SECRET_PREFIX + '/')
@@ -148,6 +150,14 @@ httpServer.on('upgrade', (req, socket, head) => {
       return
     }
   }
+
+  // 认证：未携带有效令牌的 WebSocket 连接直接拒绝（握手前）
+  const token = urlObj.searchParams.get('token') || ''
+  if (!token || !sessions.has(token)) {
+    socket.destroy()
+    return
+  }
+
   wss.handleUpgrade(req, socket, head, (ws) => {
     wss.emit('connection', ws, req)
   })
@@ -170,6 +180,65 @@ if (SECRET_PREFIX) {
     return res.status(404).send('Not found')
   })
 }
+
+// ---- 认证：会话令牌（登录/注册后签发，所有 /api 与 WebSocket 均需校验）----
+const SESSIONS_FILE = path.join(process.cwd(), 'sessions.json')
+
+function generateToken() {
+  return crypto.randomBytes(32).toString('hex')
+}
+
+function loadSessionsSync() {
+  const map = new Map()
+  try {
+    const data = JSON.parse(fs.readFileSync(SESSIONS_FILE, 'utf8'))
+    if (Array.isArray(data)) {
+      for (const s of data) {
+        if (s && s.token) map.set(s.token, { userId: s.userId, username: s.username, createdAt: s.createdAt })
+      }
+    }
+  } catch { /* 首次运行无会话文件 */ }
+  return map
+}
+
+const sessions = loadSessionsSync()
+
+async function saveSessions() {
+  try {
+    const arr = []
+    sessions.forEach((v, token) => arr.push({ token, ...v }))
+    await fs.promises.writeFile(SESSIONS_FILE, JSON.stringify(arr, null, 2))
+  } catch (err) {
+    console.error('Save sessions error:', err)
+  }
+}
+
+// 无需登录即可访问的接口
+const PUBLIC_API_PATHS = new Set([
+  '/api/auth/register',
+  '/api/auth/login',
+  '/api/auth/check'
+])
+
+function extractToken(req) {
+  const header = req.headers.authorization || ''
+  if (header.startsWith('Bearer ')) return header.slice(7).trim()
+  const q = req.query && req.query.token
+  return typeof q === 'string' ? q : ''
+}
+
+// 认证中间件：除公开接口外的所有 /api/* 请求必须携带有效令牌
+app.use((req, res, next) => {
+  if (!req.path.startsWith('/api')) return next()
+  if (PUBLIC_API_PATHS.has(req.path)) return next()
+  const token = extractToken(req)
+  const session = token ? sessions.get(token) : null
+  if (!session) {
+    return res.status(401).json({ error: '未登录或登录已过期' })
+  }
+  req.session = session
+  next()
+})
 
 let networkHistory = { rx: 0, tx: 0, timestamp: Date.now() }
 let diskHistory = { read: 0, write: 0, timestamp: Date.now() }
@@ -2780,7 +2849,12 @@ app.post('/api/auth/register', async (req, res) => {
     users.push(newUser)
     await saveUsers(users)
 
-    res.json({ success: true, user: { id: newUser.id, username: newUser.username } })
+    // 签发会话令牌
+    const token = generateToken()
+    sessions.set(token, { userId: newUser.id, username: newUser.username, createdAt: Date.now() })
+    await saveSessions()
+
+    res.json({ success: true, token, user: { id: newUser.id, username: newUser.username } })
   } catch (error) {
     console.error('Register error:', error)
     res.status(500).json({ error: error.message })
@@ -2809,7 +2883,12 @@ app.post('/api/auth/login', async (req, res) => {
       return res.status(401).json({ error: '用户名或密码错误' })
     }
 
-    res.json({ success: true, user: { id: user.id, username: user.username } })
+    // 签发会话令牌
+    const token = generateToken()
+    sessions.set(token, { userId: user.id, username: user.username, createdAt: Date.now() })
+    await saveSessions()
+
+    res.json({ success: true, token, user: { id: user.id, username: user.username } })
   } catch (error) {
     console.error('Login error:', error)
     res.status(500).json({ error: error.message })
@@ -2822,6 +2901,23 @@ app.get('/api/auth/check', async (req, res) => {
     res.json({ hasAdmin: users.length > 0 })
   } catch (error) {
     console.error('Check auth error:', error)
+    res.status(500).json({ error: error.message })
+  }
+})
+
+// 校验当前登录态（受认证中间件保护）
+app.get('/api/auth/me', (req, res) => {
+  res.json({ user: { id: req.session.userId, username: req.session.username } })
+})
+
+// 退出登录：吊销当前会话令牌
+app.post('/api/auth/logout', async (req, res) => {
+  try {
+    const token = extractToken(req)
+    if (token) sessions.delete(token)
+    await saveSessions()
+    res.json({ success: true })
+  } catch (error) {
     res.status(500).json({ error: error.message })
   }
 })

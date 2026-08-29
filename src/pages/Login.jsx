@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Eye, EyeOff } from 'lucide-react'
 import './Login.css'
-import { API_BASE } from '../config'
+import { API_BASE, setToken } from '../config'
 
 function Login({ onLogin }) {
   const [username, setUsername] = useState('')
@@ -34,8 +34,7 @@ function Login({ onLogin }) {
         return
       }
 
-      localStorage.setItem('auscore_session', 'true')
-      localStorage.setItem('auscore_user', JSON.stringify(data.user))
+      setToken(data.token)
       onLogin()
       navigate('/dashboard')
     } catch (err) {

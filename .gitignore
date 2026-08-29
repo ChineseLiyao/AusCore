@@ -12,3 +12,4 @@ server/projects.json
 server/projects/
 server/uploads/
 server/java/
+server/sessions.json

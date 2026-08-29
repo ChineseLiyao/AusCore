@@ -3,7 +3,7 @@ import { Plus, Globe, X, Play, Square, Trash2, ExternalLink, GripVertical, Folde
 import { useNavigate } from 'react-router-dom'
 import DeleteProjectDialog from '../components/DeleteProjectDialog'
 import './Projects.css'
-import { API_BASE } from '../config'
+import { API_BASE, authFetch } from '../config'
 
 function Projects({ toast, confirm }) {
   const navigate = useNavigate()
@@ -43,7 +43,7 @@ function Projects({ toast, confirm }) {
 
   const fetchProjects = async () => {
     try {
-      const response = await fetch(`${API_BASE}/api/projects`)
+      const response = await authFetch(`${API_BASE}/api/projects`)
       if (!response.ok) throw new Error('Failed to fetch projects')
       const data = await response.json()
       setProjects(data.projects)
@@ -68,7 +68,7 @@ function Projects({ toast, confirm }) {
 
     setLoading(true)
     try {
-      const response = await fetch(`${API_BASE}/api/projects/create`, {
+      const response = await authFetch(`${API_BASE}/api/projects/create`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData)
@@ -94,7 +94,7 @@ function Projects({ toast, confirm }) {
   const handleStartProject = async (projectId) => {
     setLoading(true)
     try {
-      const response = await fetch(`${API_BASE}/api/projects/${projectId}/start`, {
+      const response = await authFetch(`${API_BASE}/api/projects/${projectId}/start`, {
         method: 'POST'
       })
       if (!response.ok) {
@@ -114,7 +114,7 @@ function Projects({ toast, confirm }) {
   const handleStopProject = async (projectId) => {
     setLoading(true)
     try {
-      const response = await fetch(`${API_BASE}/api/projects/${projectId}/stop`, {
+      const response = await authFetch(`${API_BASE}/api/projects/${projectId}/stop`, {
         method: 'POST'
       })
       if (!response.ok) {
@@ -136,7 +136,7 @@ function Projects({ toast, confirm }) {
 
     setLoading(true)
     try {
-      const response = await fetch(`${API_BASE}/api/projects/${deleteProject.id}?deleteFiles=${deleteFiles}`, {
+      const response = await authFetch(`${API_BASE}/api/projects/${deleteProject.id}?deleteFiles=${deleteFiles}`, {
         method: 'DELETE'
       })
       if (!response.ok) throw new Error('Failed to delete project')

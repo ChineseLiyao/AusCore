@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import './Terminal.css'
-import { WS_BASE } from '../config'
+import { WS_BASE, wsUrl } from '../config'
 
 function Terminal({ projectId, onProcessExit }) {
   const terminalRef = useRef(null)
@@ -103,7 +103,7 @@ function Terminal({ projectId, onProcessExit }) {
     let isMounted = true
     
     // 连接 WebSocket
-    const ws = new WebSocket(`${WS_BASE}?projectId=${projectId}`)
+    const ws = new WebSocket(wsUrl(`${WS_BASE}?projectId=${projectId}`))
     wsRef.current = ws
 
     ws.onopen = () => {

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { API_BASE } from '../config'
+import { API_BASE, authFetch, getToken } from '../config'
 import './UploadManager.css'
 
 const CHUNK_SIZE = 4 * 1024 * 1024
@@ -112,7 +112,7 @@ function UploadManager({ toast }) {
 
   const queryUploaded = async (item) => {
     const qs = `path=${encodeURIComponent(item.targetPath)}&filename=${encodeURIComponent(item.name)}&size=${item.size}`
-    const res = await fetch(`${API_BASE}/api/files/upload/resume?${qs}`)
+    const res = await authFetch(`${API_BASE}/api/files/upload/resume?${qs}`)
     if (!res.ok) throw new Error('无法查询上传进度')
     const data = await res.json()
     return Math.min(data.uploaded || 0, item.size)
@@ -121,7 +121,7 @@ function UploadManager({ toast }) {
   const cancelServerPart = async (item) => {
     try {
       const qs = `path=${encodeURIComponent(item.targetPath)}&filename=${encodeURIComponent(item.name)}&size=${item.size}`
-      await fetch(`${API_BASE}/api/files/upload/resume?${qs}`, { method: 'DELETE' })
+      await authFetch(`${API_BASE}/api/files/upload/resume?${qs}`, { method: 'DELETE' })
     } catch {}
   }
 
@@ -130,6 +130,8 @@ function UploadManager({ toast }) {
     item.xhr = xhr
     xhr.open('POST', `${API_BASE}/api/files/upload/chunk`)
     xhr.setRequestHeader('Content-Type', 'application/octet-stream')
+    const tk = getToken()
+    if (tk) xhr.setRequestHeader('Authorization', 'Bearer ' + tk)
     xhr.setRequestHeader('x-target-path', encodeURIComponent(item.targetPath))
     xhr.setRequestHeader('x-filename', encodeURIComponent(item.name))
     xhr.setRequestHeader('x-offset', String(offset))
@@ -209,7 +211,7 @@ function UploadManager({ toast }) {
       if (item.status !== 'uploading') return
 
       if (item.uploaded >= item.size) {
-        const res = await fetch(`${API_BASE}/api/files/upload/complete`, {
+        const res = await authFetch(`${API_BASE}/api/files/upload/complete`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ path: item.targetPath, filename: item.name, size: item.size })
@@ -298,7 +300,7 @@ function UploadManager({ toast }) {
       ;(async () => {
         try {
           const qs = `path=${encodeURIComponent(s.targetPath)}&filename=${encodeURIComponent(s.name)}&size=${s.size}`
-          const res = await fetch(`${API_BASE}/api/files/upload/resume?${qs}`)
+          const res = await authFetch(`${API_BASE}/api/files/upload/resume?${qs}`)
           if (res.ok) {
             const data = await res.json()
             const item = itemsRef.current.get(s.id)

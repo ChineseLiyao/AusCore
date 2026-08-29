@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Eye, EyeOff } from 'lucide-react'
 import './Register.css'
-import { API_BASE } from '../config'
+import { API_BASE, setToken } from '../config'
 
 function Register({ onRegister }) {
   const [username, setUsername] = useState('')
@@ -68,8 +68,7 @@ function Register({ onRegister }) {
         return
       }
 
-      localStorage.setItem('auscore_session', 'true')
-      localStorage.setItem('auscore_user', JSON.stringify(data.user))
+      setToken(data.token)
       onRegister()
       navigate('/dashboard')
     } catch (err) {
