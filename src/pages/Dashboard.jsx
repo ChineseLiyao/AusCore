@@ -43,7 +43,7 @@ function Dashboard({ metrics, error }) {
       </div>
       <div className="dashboard-footer">
         <img 
-          src="/logo.png" 
+          src="./logo.png" 
           alt="Logo" 
           className="dashboard-logo"
         />

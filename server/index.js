@@ -14,6 +14,7 @@ import archiver from 'archiver'
 import unzipper from 'unzipper'
 import https from 'https'
 import crypto from 'crypto'
+import net from 'net'
 
 // 尝试导入 node-pty，如果失败则使用 spawn
 let pty = null
@@ -25,8 +26,66 @@ try {
 
 const execAsync = promisify(exec)
 const app = express()
-const PORT = 13338
 const httpServer = createServer(app)
+
+// ---- 部署配置：端口 + 安全入口（由 install.sh 生成，可用环境变量覆盖）----
+const CONFIG_FILE = path.join(process.cwd(), 'auscore.config.json')
+
+function loadDeployConfig() {
+  try {
+    const raw = fs.readFileSync(CONFIG_FILE, 'utf8').replace(/^\uFEFF/, '')
+    const data = JSON.parse(raw)
+    return {
+      port: parseInt(data.port, 10) || null,
+      secretPath: String(data.secretPath || '').trim()
+    }
+  } catch {
+    return { port: null, secretPath: '' }
+  }
+}
+
+function saveDeployConfig(config) {
+  try {
+    fs.writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2))
+  } catch (err) {
+    console.error('Failed to save deploy config:', err.message)
+  }
+}
+
+function isPortFree(port) {
+  return new Promise((resolve) => {
+    const srv = net.createServer()
+    srv.once('error', () => resolve(false))
+    srv.once('listening', () => srv.close(() => resolve(true)))
+    srv.listen(port, '0.0.0.0')
+  })
+}
+
+// 解析服务端口：环境变量 PORT > 配置文件 > 默认 13338（被占用则自动更换并持久化）
+const deployConfig = loadDeployConfig()
+
+async function resolvePort() {
+  if (process.env.PORT) {
+    const p = parseInt(process.env.PORT, 10)
+    if (!Number.isNaN(p)) return p
+  }
+  const fallback = deployConfig.port || 13338
+  if (await isPortFree(fallback)) return fallback
+  console.warn(`[WARN] 端口 ${fallback} 已被占用，自动更换空闲端口`)
+  for (let i = 0; i < 300; i++) {
+    const p = 20000 + Math.floor(Math.random() * 40000)
+    if (await isPortFree(p)) {
+      saveDeployConfig({ port: p, secretPath: deployConfig.secretPath || '' })
+      return p
+    }
+  }
+  return fallback
+}
+
+const PORT = await resolvePort()
+
+const SECRET_PATH = (process.env.AUSCORE_PATH || deployConfig.secretPath || '').trim().replace(/^\/+|\/+$/g, '')
+const SECRET_PREFIX = SECRET_PATH ? '/' + SECRET_PATH : ''
 
 // Windows 终端输出解码器
 // 中文 Windows 的 tree 等原生命令可能忽略 chcp 65001，仍用 GBK 编码输出
@@ -70,10 +129,47 @@ function decodeWindowsOutput(buffer) {
     return buffer.toString('utf8')
   }
 }
-const wss = new WebSocketServer({ server: httpServer })
+// WebSocket 服务器：不直接绑定 httpServer，由下方 upgrade 事件手动接管，以便校验安全入口前缀
+const wss = new WebSocketServer({ noServer: true })
+
+httpServer.on('upgrade', (req, socket, head) => {
+  let pathname = ''
+  try {
+    pathname = new URL(req.url, `http://${req.headers.host}`).pathname
+  } catch {
+    socket.destroy()
+    return
+  }
+  // 安全入口：未携带部署前缀的 WebSocket 连接直接拒绝（握手前）
+  if (SECRET_PREFIX) {
+    const valid = pathname === SECRET_PREFIX || pathname.startsWith(SECRET_PREFIX + '/')
+    if (!valid) {
+      socket.destroy()
+      return
+    }
+  }
+  wss.handleUpgrade(req, socket, head, (ws) => {
+    wss.emit('connection', ws, req)
+  })
+})
 
 app.use(cors())
 app.use(express.json())
+
+// 安全入口：所有 HTTP 请求必须携带部署时生成的前缀路径，否则一律 404
+if (SECRET_PREFIX) {
+  app.use((req, res, next) => {
+    if (req.path === SECRET_PREFIX) {
+      const qs = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : ''
+      return res.redirect(301, SECRET_PREFIX + '/' + qs)
+    }
+    if (req.path.startsWith(SECRET_PREFIX + '/')) {
+      req.url = req.url.slice(SECRET_PREFIX.length)
+      return next()
+    }
+    return res.status(404).send('Not found')
+  })
+}
 
 let networkHistory = { rx: 0, tx: 0, timestamp: Date.now() }
 let diskHistory = { read: 0, write: 0, timestamp: Date.now() }
@@ -361,9 +457,17 @@ app.get('/api/metrics', async (req, res) => {
   }
 })
 
+httpServer.on('error', (err) => {
+  if (err.code === 'EADDRINUSE') {
+    console.error(`[ERROR] 端口 ${PORT} 已被占用，请删除 ${CONFIG_FILE} 后重启，或设置环境变量 PORT 指定端口`)
+    process.exit(1)
+  }
+  throw err
+})
+
 httpServer.listen(PORT, () => {
-  console.log(`AusCore API server running on http://localhost:${PORT}`)
-  console.log(`WebSocket server running on ws://localhost:${PORT}`)
+  console.log(`AusCore API server running on http://localhost:${PORT}${SECRET_PREFIX}`)
+  console.log(`WebSocket server running on ws://localhost:${PORT}${SECRET_PREFIX}`)
 })
 
 // 服务器终端进程
@@ -373,10 +477,24 @@ const serverTerminalClients = new Set()
 // WebSocket 连接处理
 wss.on('connection', async (ws, req) => {
   const url = new URL(req.url, `http://${req.headers.host}`)
+  let pathname = url.pathname
+  
+  // 安全入口：WebSocket 也必须携带部署前缀，否则拒绝连接
+  if (SECRET_PREFIX) {
+    if (pathname === SECRET_PREFIX) {
+      pathname = ''
+    } else if (pathname.startsWith(SECRET_PREFIX + '/')) {
+      pathname = pathname.slice(SECRET_PREFIX.length)
+    } else {
+      ws.close()
+      return
+    }
+  }
+  
   const projectId = url.searchParams.get('projectId')
   
   // 服务器终端连接
-  if (req.url === '/terminal') {
+  if (pathname === '/terminal') {
     serverTerminalClients.add(ws)
     
     // 如果终端进程不存在，创建一个
@@ -2855,16 +2973,30 @@ app.post('/api/update/apply', async (req, res) => {
 // ---- 生产环境：托管前端构建产物（dist/），单端口部署 ----
 const DIST_DIR = path.join(BASE_PATH, '..', 'dist')
 
-app.use(serveStatic(DIST_DIR, { index: ['index.html'] }))
+// 将真实安全入口前缀注入到 index.html（前端据此推导 API 地址与路由 basename）
+function serveIndexHtml(res) {
+  const indexFile = path.join(DIST_DIR, 'index.html')
+  if (!fs.existsSync(indexFile)) {
+    return res.status(404).send('Frontend not built. Run `npm run build` in the project root first.')
+  }
+  let html = fs.readFileSync(indexFile, 'utf8')
+  html = html.replace(
+    /window\.__AUSCORE_PREFIX__\s*=\s*"[^"]*"/,
+    'window.__AUSCORE_PREFIX__ = ' + JSON.stringify(SECRET_PREFIX)
+  )
+  res.setHeader('Content-Type', 'text/html; charset=utf-8')
+  res.send(html)
+}
+
+// 静态资源（不处理目录索引，index.html 由下方注入逻辑接管）
+app.use(serveStatic(DIST_DIR, { index: false }))
+
+app.get('/', (req, res) => serveIndexHtml(res))
 
 // SPA 回退：非 API 的 GET 请求返回 index.html
 app.get('*', (req, res) => {
   if (req.path.startsWith('/api')) {
     return res.status(404).json({ error: 'Not found' })
   }
-  const indexFile = path.join(DIST_DIR, 'index.html')
-  if (!fs.existsSync(indexFile)) {
-    return res.status(404).send('Frontend not built. Run `npm run build` in the project root first.')
-  }
-  res.sendFile(indexFile)
+  serveIndexHtml(res)
 })

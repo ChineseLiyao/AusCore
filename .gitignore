@@ -3,6 +3,9 @@ dist
 .DS_Store
 *.log
 
+# 部署配置（端口 + 安全入口，由 install.sh 生成，不入库）
+server/auscore.config.json
+
 # 运行时数据（账号、项目、上传、Java 等，不入库）
 server/users.json
 server/projects.json

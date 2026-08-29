@@ -34,9 +34,21 @@ export function setServerAddr(value) {
   return base
 }
 
+// 当前部署的安全入口前缀（由后端注入到 index.html 的 window.__AUSCORE_PREFIX__）
+// 未启用安全入口（legacy / 开发模式）时为空字符串
+function getPathPrefix() {
+  try {
+    const v = window.__AUSCORE_PREFIX__
+    return typeof v === 'string' && v.startsWith('/') ? v : ''
+  } catch {
+    return ''
+  }
+}
+
 function resolveApiBase() {
   const override = normalizeBase(getServerAddr())
-  if (override) return override
+  const prefix = getPathPrefix()
+  if (override) return override + prefix
 
   const isDev = import.meta.env.DEV
   if (isDev) {
@@ -44,8 +56,13 @@ function resolveApiBase() {
       ? 'http://localhost:13338'
       : `http://${window.location.hostname}:13338`
   }
-  return import.meta.env.VITE_API_BASE || `http://${window.location.hostname}:13338`
+  const explicit = import.meta.env.VITE_API_BASE
+  if (explicit) return explicit
+  // 生产环境与后端同源（端口 + 安全入口随当前地址自动推导）
+  return window.location.origin + prefix
 }
 
 export const API_BASE = resolveApiBase()
 export const WS_BASE = API_BASE.replace(/^http/, 'ws')
+// React Router 的 basename（安全入口前缀，未设置时为 '/'）
+export const ROUTER_BASENAME = getPathPrefix() || '/'

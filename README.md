@@ -82,7 +82,19 @@ curl -fsSL https://raw.githubusercontent.com/ChineseLiyao/AusCore/refs/heads/mai
 4. 安装依赖并构建前端
 5. 使用 PM2 启动后端服务（前端构建产物由后端托管）
 
-安装完成后访问 `http://服务器IP:13338` 即可使用。
+安装完成后脚本会显示访问地址。为了多实例互不冲突并防止端口扫描，安装时会**自动生成一个随机端口和随机安全入口路径**：
+
+```
+访问地址: http://服务器IP:随机端口/auscore-随机字符串
+安全入口: /auscore-随机字符串（未携带入口路径的请求一律 404）
+```
+
+配置保存在 `/opt/auscore/server/auscore.config.json`，可通过环境变量预设：
+
+```bash
+# 指定端口 / 安全入口（可选）
+AUSCORE_PORT=23456 AUSCORE_PATH=my-entry sudo bash install.sh
+```
 
 ---
 
@@ -115,7 +127,11 @@ npm install
 node index.js
 ```
 
-后端默认运行在 `http://服务器IP:13338`。
+手动部署时若 `server/auscore.config.json` 不存在，后端会自动生成随机端口与安全入口，并打印在启动日志中。也可用环境变量指定：
+
+```bash
+PORT=23456 AUSCORE_PATH=my-entry node index.js
+```
 
 **推荐使用 PM2 运行：**
 
@@ -132,7 +148,7 @@ pm2 save
 pm2 startup
 ```
 
-访问 `http://服务器IP:13338`，首次访问会引导注册管理员账户。
+访问安装时生成的 `http://服务器IP:随机端口/安全入口`，首次访问会引导注册管理员账户。
 
 ---
 

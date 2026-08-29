@@ -11,7 +11,7 @@ import DownloadManager from './components/DownloadManager'
 import UploadManager from './components/UploadManager'
 import { useToast } from './hooks/useToast'
 import { useConfirm } from './hooks/useConfirm'
-import { API_BASE } from './config'
+import { API_BASE, ROUTER_BASENAME } from './config'
 
 // 懒加载页面组件
 const Dashboard = lazy(() => import('./pages/Dashboard'))
@@ -221,7 +221,7 @@ function App() {
   }
 
   return (
-    <BrowserRouter>
+    <BrowserRouter basename={ROUTER_BASENAME}>
       <Routes>
         <Route 
           path="/register" 

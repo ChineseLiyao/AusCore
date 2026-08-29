@@ -4,16 +4,28 @@ import { useState, useEffect, useRef } from 'react'
 import './Sidebar.css'
 import { API_BASE, getServerAddr, setServerAddr } from '../config'
 
+function getDefaultAddr() {
+  try {
+    return {
+      https: window.location.protocol === 'https:',
+      host: window.location.hostname,
+      port: window.location.port || (window.location.protocol === 'https:' ? '443' : '')
+    }
+  } catch {
+    return { https: false, host: '', port: '' }
+  }
+}
+
 function parseServerAddr(value) {
   try {
     const u = new URL(value)
     return {
       https: u.protocol === 'https:',
       host: u.hostname,
-      port: u.port || (u.protocol === 'https:' ? '443' : '13338')
+      port: u.port
     }
   } catch {
-    return { https: false, host: '', port: '13338' }
+    return getDefaultAddr()
   }
 }
 
@@ -29,7 +41,7 @@ function Sidebar({ onLogout, toast, open, onClose }) {
   const checkIntervalRef = useRef(null)
   const pollTimerRef = useRef(null)
 
-  const saved = parseServerAddr(getServerAddr())
+  const saved = getServerAddr() ? parseServerAddr(getServerAddr()) : getDefaultAddr()
   const [settings, setSettings] = useState({
     https: saved.https,
     host: saved.host,
@@ -117,7 +129,8 @@ function Sidebar({ onLogout, toast, open, onClose }) {
     const host = settings.host.trim()
     if (!host) return
     const scheme = settings.https ? 'https' : 'http'
-    setServerAddr(`${scheme}://${host}:${settings.port}`)
+    const portPart = settings.port ? `:${settings.port}` : ''
+    setServerAddr(`${scheme}://${host}${portPart}`)
     window.location.reload()
   }
 
@@ -264,7 +277,7 @@ function Sidebar({ onLogout, toast, open, onClose }) {
                     <input
                       type="text"
                       className="settings-input"
-                      placeholder="13338"
+                      placeholder="端口（默认跟随当前页面）"
                       value={settings.port}
                       onChange={(e) => setSettings({ ...settings, port: e.target.value })}
                     />

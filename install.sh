@@ -265,6 +265,73 @@ install_dependencies() {
     print_success "依赖安装完成"
 }
 
+# 挑选一个空闲端口
+pick_free_port() {
+    local p
+    while :; do
+        p=$(( RANDOM % 40000 + 20000 ))
+        if ss -tln 2>/dev/null | grep -q ":$p[[:space:]]"; then
+            continue
+        fi
+        if netstat -tln 2>/dev/null | grep -q ":$p[[:space:]]"; then
+            continue
+        fi
+        echo "$p"
+        return
+    done
+}
+
+# 解析部署配置（端口 + 安全入口）：环境变量 > 已有配置文件 > 自动生成
+resolve_deploy_config() {
+    local config_file="$INSTALL_DIR/server/auscore.config.json"
+    local existing_port=""
+    local existing_path=""
+
+    if [ -f "$config_file" ]; then
+        existing_port=$(grep -o '"port"[[:space:]]*:[[:space:]]*[0-9]*' "$config_file" | grep -o '[0-9]*' | head -n1)
+        existing_path=$(grep -o '"secretPath"[[:space:]]*:[[:space:]]*"[^"]*"' "$config_file" | sed 's/.*"secretPath"[[:space:]]*:[[:space:]]*"//; s/"//')
+    fi
+
+    if [ -n "$AUSCORE_PORT" ]; then
+        AUSCORE_DEPLOY_PORT="$AUSCORE_PORT"
+    elif [ -n "$existing_port" ]; then
+        AUSCORE_DEPLOY_PORT="$existing_port"
+    else
+        AUSCORE_DEPLOY_PORT=$(pick_free_port)
+    fi
+
+    if [ -n "$AUSCORE_PATH" ]; then
+        AUSCORE_DEPLOY_PATH=$(echo "$AUSCORE_PATH" | sed 's#^/##; s#/$##')
+    elif [ -n "$existing_path" ]; then
+        AUSCORE_DEPLOY_PATH="$existing_path"
+    else
+        AUSCORE_DEPLOY_PATH="auscore-$(openssl rand -hex 5 2>/dev/null || date +%s%N | tail -c 11)"
+    fi
+
+    # 校验端口是否被占用，被占用则自动更换
+    if ss -tln 2>/dev/null | grep -q ":$AUSCORE_DEPLOY_PORT[[:space:]]" || netstat -tln 2>/dev/null | grep -q ":$AUSCORE_DEPLOY_PORT[[:space:]]"; then
+        if [ -n "$AUSCORE_PORT" ]; then
+            print_warning "AUSCORE_PORT=$AUSCORE_PORT 已被占用，自动更换端口"
+        else
+            print_warning "端口 $AUSCORE_DEPLOY_PORT 已被占用，自动更换端口"
+        fi
+        AUSCORE_DEPLOY_PORT=$(pick_free_port)
+    fi
+}
+
+# 写入部署配置
+write_deploy_config() {
+    mkdir -p "$INSTALL_DIR/server"
+    cat > "$INSTALL_DIR/server/auscore.config.json" <<EOF
+{
+  "port": $AUSCORE_DEPLOY_PORT,
+  "secretPath": "$AUSCORE_DEPLOY_PATH"
+}
+EOF
+    print_success "部署配置已生成：端口 $AUSCORE_DEPLOY_PORT，安全入口 /$AUSCORE_DEPLOY_PATH"
+    print_info "配置文件: $INSTALL_DIR/server/auscore.config.json（可手动修改后重启服务）"
+}
+
 # 构建前端
 build_frontend() {
     print_info "构建前端..."
@@ -290,29 +357,38 @@ deploy_services() {
 
 # 配置防火墙
 configure_firewall() {
-    print_info "配置防火墙..."
+    local port="$1"
+    print_info "配置防火墙（开放端口 $port）..."
     
     if command -v ufw &> /dev/null; then
-        ufw allow 13338/tcp comment "AusCore" 2>/dev/null || true
+        ufw allow $port/tcp comment "AusCore" 2>/dev/null || true
         print_success "UFW 防火墙规则已添加"
     elif command -v firewall-cmd &> /dev/null; then
-        firewall-cmd --permanent --add-port=13338/tcp 2>/dev/null || true
+        firewall-cmd --permanent --add-port=$port/tcp 2>/dev/null || true
         firewall-cmd --reload 2>/dev/null || true
         print_success "Firewalld 防火墙规则已添加"
     else
-        print_warning "未检测到防火墙，请手动开放端口 13338"
+        print_warning "未检测到防火墙，请手动开放端口 $port"
     fi
 }
 
 # 显示完成信息
 show_completion() {
+    local port="$1"
+    local spath="$2"
+    local ip
+    ip=$(hostname -I 2>/dev/null | awk '{print $1}')
+    [ -z "$ip" ] && ip=$(hostname -i 2>/dev/null | awk '{print $1}')
+    [ -z "$ip" ] && ip="服务器IP"
+
     echo ""
     echo "=========================================="
     print_success "AusCore 安装完成！"
     echo "=========================================="
     echo ""
     
-    print_info "访问地址: http://$(hostname -I | awk '{print $1}'):13338"
+    print_info "访问地址: http://$ip:$port/$spath"
+    print_info "安全入口: /$spath（请务必保存，未携带入口路径的请求将返回 404）"
     echo ""
     
     print_info "常用命令:"
@@ -342,11 +418,13 @@ main() {
     install_build_tools
     install_pm2
     clone_project
+    resolve_deploy_config
+    write_deploy_config
     install_dependencies
     build_frontend
     deploy_services
-    configure_firewall
-    show_completion
+    configure_firewall "$AUSCORE_DEPLOY_PORT"
+    show_completion "$AUSCORE_DEPLOY_PORT" "$AUSCORE_DEPLOY_PATH"
 }
 
 # 执行主函数
