@@ -721,6 +721,40 @@ function Files({ toast, confirm }) {
           </div>
         </div>
       )}
+
+      {/* 新建文件/文件夹模态框 */}
+      {showCreateModal && (
+        <div className="modal-overlay">
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>{createType === 'directory' ? '新建文件夹' : '新建文件'}</h2>
+              <button className="btn-close-modal" onClick={() => setShowCreateModal(false)}>
+                <X size={20} />
+              </button>
+            </div>
+            <div className="modal-body">
+              <p className="modal-hint">将在 {currentPath} 目录下创建</p>
+              <input
+                type="text"
+                className="rename-input"
+                style={{ width: '100%' }}
+                value={createName}
+                onChange={(e) => setCreateName(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && handleCreate()}
+                placeholder={createType === 'directory' ? '文件夹名称' : '文件名称（如 notes.txt）'}
+                autoFocus
+              />
+            </div>
+            <div className="create-modal-footer">
+              <button className="btn-cancel" onClick={() => setShowCreateModal(false)}>取消</button>
+              <button className="btn-save" onClick={handleCreate} disabled={!createName.trim()}>
+                <Save size={14} />
+                <span>创建</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
