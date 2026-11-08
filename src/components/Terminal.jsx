@@ -99,18 +99,27 @@ function Terminal({ projectId, onProcessExit }) {
   }
 
   useEffect(() => {
-    let isConnected = false
     let isMounted = true
-    
-    // 连接 WebSocket
-    const ws = new WebSocket(wsUrl(`${WS_BASE}?projectId=${projectId}`))
-    wsRef.current = ws
+    let ws = null
+    let reconnectTimer = null
+    let retryCount = 0
+    let wasConnected = false
 
-    ws.onopen = () => {
+    const connect = () => {
       if (!isMounted) return
-      isConnected = true
-      setLogs(prev => [...prev, { type: 'system', data: '已连接到项目终端\n', timestamp: Date.now() }])
-    }
+      // 连接 WebSocket
+      ws = new WebSocket(wsUrl(`${WS_BASE}?projectId=${projectId}`))
+      wsRef.current = ws
+
+      ws.onopen = () => {
+        if (!isMounted) return
+        // 重连成功时提示（首次连接由服务端推送历史，不额外刷屏）
+        if (wasConnected) {
+          setLogs(prev => [...prev, { type: 'system', data: '已重新连接到项目终端\n', timestamp: Date.now() }])
+        }
+        wasConnected = true
+        retryCount = 0
+      }
 
     ws.onmessage = (event) => {
       if (!isMounted) return
@@ -136,24 +145,32 @@ function Terminal({ projectId, onProcessExit }) {
       }
     }
 
-    ws.onerror = (error) => {
-      if (isConnected && isMounted) {
-        setLogs(prev => [...prev, { type: 'error', data: '连接错误\n', timestamp: Date.now() }])
+      ws.onerror = (error) => {
+        if (wasConnected && isMounted) {
+          setLogs(prev => [...prev, { type: 'error', data: '连接错误\n', timestamp: Date.now() }])
+        }
+        console.error('Terminal WebSocket error:', error)
       }
-      console.error('Terminal WebSocket error:', error)
+
+      ws.onclose = () => {
+        if (!isMounted) return
+        if (wasConnected) {
+          setLogs(prev => [...prev, { type: 'error', data: '连接已断开，正在自动重连...\n', timestamp: Date.now() }])
+        }
+        wasConnected = false
+        // 指数退避重连：1s、2s、4s... 封顶 10s，直到重连成功或组件卸载
+        retryCount++
+        const delay = Math.min(10000, 1000 * Math.pow(2, retryCount - 1))
+        reconnectTimer = setTimeout(connect, delay)
+      }
     }
 
-    ws.onclose = () => {
-      if (isConnected && isMounted) {
-        setLogs(prev => [...prev, { type: 'error', data: '已断开连接\n', timestamp: Date.now() }])
-      }
-      isConnected = false
-    }
+    connect()
 
     return () => {
       isMounted = false
-      isConnected = false
-      if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
+      if (reconnectTimer) clearTimeout(reconnectTimer)
+      if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
         ws.close()
       }
     }

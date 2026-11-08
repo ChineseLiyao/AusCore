@@ -562,6 +562,34 @@ httpServer.listen(activePort, () => {
   console.log(`WebSocket server running on ws://localhost:${activePort}${SECRET_PREFIX}`)
 })
 
+// 开机自恢复：面板/服务器重启后，自动重启此前处于运行状态的项目
+async function recoverRunningProjects() {
+  try {
+    const projects = await loadProjects()
+    const toRecover = projects.filter(p => p.status === 'running')
+    if (toRecover.length === 0) return
+    console.log(`[Recovery] 检测到 ${toRecover.length} 个项目此前处于运行状态，开始自动恢复...`)
+    for (const project of toRecover) {
+      try {
+        await startProjectInternal(project)
+        console.log(`[Recovery] 项目「${project.name}」已自动恢复运行`)
+        saveLog(project.id, { type: 'system', data: '面板已重启，项目自动恢复运行\n', timestamp: Date.now() }).catch(() => {})
+      } catch (err) {
+        console.warn(`[Recovery] 项目「${project.name}」自动恢复失败: ${err.message}`)
+        project.status = 'stopped'
+        saveLog(project.id, { type: 'error', data: `面板重启后自动恢复失败: ${err.message}\n`, timestamp: Date.now() }).catch(() => {})
+      }
+    }
+    await saveProjects(projects)
+    console.log('[Recovery] 项目恢复流程结束')
+  } catch (err) {
+    console.error('[Recovery] 项目恢复失败:', err.message)
+  }
+}
+
+// 延迟 2 秒执行，等待端口/静态服务等初始化完成
+setTimeout(() => { recoverRunningProjects().catch(() => {}) }, 2000)
+
 // 服务器终端进程
 let serverTerminalProcess = null
 const serverTerminalClients = new Set()
@@ -2247,6 +2275,44 @@ app.post('/api/projects/:id/java', async (req, res) => {
   }
 })
 
+// 启动项目（内部共享逻辑：API 与开机自恢复共用）
+async function startProjectInternal(project) {
+  // 验证路径是否存在
+  try {
+    await fs.promises.access(project.path)
+  } catch {
+    throw new Error('项目路径不存在')
+  }
+
+  // 环境检测
+  const envIssues = await checkEnvironment(project.type, project.startCommand, project.javaPath)
+  if (envIssues.length > 0) {
+    throw new Error(envIssues[0])
+  }
+
+  if (project.type === 'static') {
+    if (!project.port) {
+      throw new Error('静态项目需要配置端口')
+    }
+    await startStaticServer(project.id, project.path, project.port)
+  } else if (project.type === 'docker') {
+    if (!project.dockerConfig?.image && !project.dockerConfig?.dockerComposeFile) {
+      throw new Error('Docker 项目需要配置镜像或 Compose 文件')
+    }
+    await startDockerProject(project.id, project.path, project.dockerConfig)
+  } else if (project.type === 'custom' || project.type === 'minecraft') {
+    if (!project.startCommand) {
+      throw new Error(project.type === 'minecraft' ? 'Minecraft 服务器需要配置启动命令' : '自定义项目需要配置启动命令')
+    }
+    let cmd = project.startCommand
+    // MC 项目：如果设置了 javaPath，替换命令中的 java
+    if (project.type === 'minecraft' && project.javaPath) {
+      cmd = cmd.replace(/^"[^"]*java(?:\.exe)?"/, project.javaPath).replace(/^java(?:\.exe)?/, project.javaPath)
+    }
+    await startCustomProcess(project.id, project.path, cmd)
+  }
+}
+
 app.post('/api/projects/:id/start', async (req, res) => {
   try {
     const { id } = req.params
@@ -2261,40 +2327,7 @@ app.post('/api/projects/:id/start', async (req, res) => {
       return res.status(400).json({ error: '项目已在运行' })
     }
 
-    // 验证路径是否存在
-    try {
-      await fs.promises.access(project.path)
-    } catch {
-      return res.status(400).json({ error: '项目路径不存在' })
-    }
-
-    // 环境检测
-    const envIssues = await checkEnvironment(project.type, project.startCommand, project.javaPath)
-    if (envIssues.length > 0) {
-      return res.status(400).json({ error: envIssues[0] })
-    }
-
-    if (project.type === 'static') {
-      if (!project.port) {
-        return res.status(400).json({ error: '静态项目需要配置端口' })
-      }
-      await startStaticServer(project.id, project.path, project.port)
-    } else if (project.type === 'docker') {
-      if (!project.dockerConfig?.image && !project.dockerConfig?.dockerComposeFile) {
-        return res.status(400).json({ error: 'Docker 项目需要配置镜像或 Compose 文件' })
-      }
-      await startDockerProject(project.id, project.path, project.dockerConfig)
-    } else if (project.type === 'custom' || project.type === 'minecraft') {
-      if (!project.startCommand) {
-        return res.status(400).json({ error: project.type === 'minecraft' ? 'Minecraft 服务器需要配置启动命令' : '自定义项目需要配置启动命令' })
-      }
-      let cmd = project.startCommand
-      // MC 项目：如果设置了 javaPath，替换命令中的 java
-      if (project.type === 'minecraft' && project.javaPath) {
-        cmd = cmd.replace(/^"[^"]*java(?:\.exe)?"/, project.javaPath).replace(/^java(?:\.exe)?/, project.javaPath)
-      }
-      await startCustomProcess(project.id, project.path, cmd)
-    }
+    await startProjectInternal(project)
 
     project.status = 'running'
     await saveProjects(projects)
