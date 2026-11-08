@@ -3331,7 +3331,11 @@ function serveIndexHtml(res) {
     /window\.__AUSCORE_PREFIX__\s*=\s*"[^"]*"/,
     'window.__AUSCORE_PREFIX__ = ' + JSON.stringify(SECRET_PREFIX)
   )
+  // 索引页永不缓存：确保面板更新后浏览器立即拿到新的资源引用，避免「更新后仍显示旧面板」
   res.setHeader('Content-Type', 'text/html; charset=utf-8')
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate')
+  res.setHeader('Pragma', 'no-cache')
+  res.setHeader('Expires', '0')
   res.send(html)
 }
 
