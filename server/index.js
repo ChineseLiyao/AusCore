@@ -2573,8 +2573,11 @@ async function getPaperBuilds(version) {
 async function getPaperVersions() {
   try {
     const data = await httpsGet('https://fill.papermc.io/v3/projects/paper')
-    if (Array.isArray(data.versions) && data.versions.length > 0) {
-      return data.versions
+    // v3 的 versions 是「大版本族 → 具体版本数组」的嵌套对象，需拍平（族序即新到旧）
+    if (data.versions && typeof data.versions === 'object') {
+      const flat = Object.values(data.versions)
+        .flatMap(v => (Array.isArray(v) ? v : []))
+      if (flat.length > 0) return flat
     }
   } catch { /* 回退 v2 */ }
   const data = await httpsGet('https://api.papermc.io/v2/projects/paper')
