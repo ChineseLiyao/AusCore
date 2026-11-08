@@ -115,6 +115,15 @@ function MainLayout({ onLogout }) {
     }
   }, [])
 
+  // 空闲时预载文件管理页代码块（含 monaco 编辑器，体积较大），
+  // 消除从其他页面切换到「文件管理」时的加载卡顿
+  useEffect(() => {
+    const idle = typeof window.requestIdleCallback === 'function'
+      ? window.requestIdleCallback
+      : (cb) => setTimeout(cb, 1500)
+    idle(() => { import('./pages/Files') })
+  }, [])
+
   return (
     <div style={{ display: 'flex', width: '100vw', height: '100vh' }}>
       <Sidebar onLogout={onLogout} toast={{ success, error: showError, warning }} open={sidebarOpen} onClose={() => setSidebarOpen(false)} />

@@ -782,14 +782,40 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage })
 
+// 解析文件浏览路径：
+// - '/x/y' 相对 BASE_PATH（面板数据根目录）
+// - 'C:/x/y'（Windows 盘符绝对路径）直接使用，支持浏览整个磁盘
+// - '..' 向上回退，最终收敛到文件系统根目录（Linux 为 /，Windows 为对应盘符根如 C:\）
+function resolveBrowsePath(requestedPath) {
+  const s = String(requestedPath || '/')
+  if (/^[a-zA-Z]:[\\/]/.test(s)) return path.resolve(s)
+  return path.resolve(BASE_PATH, '.' + (s.startsWith('/') ? s : '/' + s))
+}
+
+// 将绝对路径转换为可传输/可导航的浏览路径：BASE_PATH 内部 → '/相对路径'；外部 → 'C:/xxx' 斜杠形式
+function toBrowsePath(abs) {
+  const rel = path.relative(BASE_PATH, abs)
+  if (rel && !rel.startsWith('..') && !path.isAbsolute(rel)) {
+    return '/' + rel.split(path.sep).join('/')
+  }
+  if (!rel) return '/'
+  return abs.split(path.sep).join('/')
+}
+
 app.get('/api/files', async (req, res) => {
   try {
     const requestedPath = req.query.path || '/'
-    const fullPath = path.join(BASE_PATH, requestedPath)
+    const fullPath = resolveBrowsePath(requestedPath)
 
-    if (!fullPath.startsWith(BASE_PATH)) {
-      return res.status(403).json({ error: 'Access denied' })
+    try {
+      await fs.promises.access(fullPath)
+    } catch {
+      return res.status(400).json({ error: '路径不存在' })
     }
+
+    // 文件系统根目录（Linux: /，Windows: C:\ 等）没有上级
+    const fsRoot = path.parse(fullPath).root
+    const parentAbs = fullPath === path.resolve(fsRoot) ? null : path.dirname(fullPath)
 
     const items = await fs.promises.readdir(fullPath, { withFileTypes: true })
     
@@ -820,6 +846,8 @@ app.get('/api/files', async (req, res) => {
     }
 
     res.json({
+      cur: toBrowsePath(fullPath),
+      parent: parentAbs ? toBrowsePath(parentAbs) : null,
       files: files.sort((a, b) => {
         if (a.type === b.type) return a.name.localeCompare(b.name)
         return a.type === 'directory' ? -1 : 1

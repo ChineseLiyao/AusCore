@@ -29,12 +29,24 @@ function Files({ toast, confirm }) {
   const [createName, setCreateName] = useState('')
   const [createType, setCreateType] = useState('file')
 
-  // 从路由路径获取当前目录路径
-  const currentPath = params['*'] ? '/' + params['*'] : '/'
+  // 从路由路径获取当前目录路径；fsPath 非空表示已回退到面板根目录之外（如 Windows 盘符根）
+  const routePath = params['*'] ? '/' + params['*'] : '/'
+  const [fsPath, setFsPath] = useState(null)
+  const [parentPath, setParentPath] = useState(null)
+  const currentPath = fsPath ?? routePath
+  // 已离开面板根目录（浏览整个文件系统）：仅允许浏览，限制文件操作
+  const outsideBase = /^[a-zA-Z]:/.test(currentPath)
 
   useEffect(() => {
+    setFsPath(null)
+    setParentPath(null)
     fetchFiles(currentPath)
-  }, [currentPath])
+  }, [routePath])
+
+  // 回退到面板根目录之外后，由 fsPath 驱动浏览（不改变路由）
+  useEffect(() => {
+    if (fsPath !== null) fetchFiles(fsPath)
+  }, [fsPath])
 
   // 上传完成后刷新当前目录列表
   useEffect(() => {
@@ -78,6 +90,7 @@ function Files({ toast, confirm }) {
 
       const droppedFiles = Array.from(e.dataTransfer.files)
       if (droppedFiles.length > 0) {
+        if (outsideBase) { toast.warning('已离开面板根目录，此区域仅支持浏览'); return }
         await uploadFiles(droppedFiles)
       }
     }
@@ -110,6 +123,7 @@ function Files({ toast, confirm }) {
       if (!response.ok) throw new Error('Failed to fetch files')
       const data = await response.json()
       setFiles(data.files)
+      setParentPath(data.parent ?? null)
     } catch (err) {
       if (err.name === 'AbortError') {
         setError('请求超时，请检查服务器状态')
@@ -125,7 +139,11 @@ function Files({ toast, confirm }) {
   const handleFileClick = async (file) => {
     if (file.type === 'directory') {
       const newPath = currentPath === '/' ? `/${file.name}` : `${currentPath}/${file.name}`
-      navigate(`/files${newPath}`, { state: location.state })
+      if (/^[a-zA-Z]:/.test(newPath)) {
+        setFsPath(newPath)
+      } else {
+        navigate(`/files${newPath}`, { state: location.state })
+      }
     } else {
       if (file.size > MAX_EDIT_SIZE) {
         toast.warning(`文件大小超过 ${(MAX_EDIT_SIZE / 1024 / 1024).toFixed(0)}MB，无法在线编辑`)
@@ -136,6 +154,7 @@ function Files({ toast, confirm }) {
   }
 
   const openFileEditor = async (file) => {
+    if (outsideBase) { toast.warning('已离开面板根目录，此区域仅支持浏览'); return }
     setLoading(true)
     try {
       const filePath = currentPath === '/' ? `/${file.name}` : `${currentPath}/${file.name}`
@@ -210,6 +229,7 @@ function Files({ toast, confirm }) {
   }
 
   const handleDeleteFile = async (file) => {
+    if (outsideBase) { toast.warning('已离开面板根目录，此区域仅支持浏览'); return }
     const confirmed = await confirm(`确定要删除 ${file.name} 吗？`)
     if (!confirmed) return
     
@@ -234,11 +254,13 @@ function Files({ toast, confirm }) {
   }
 
   const handleUpload = async (e) => {
+    if (outsideBase) { toast.warning('已离开面板根目录，此区域仅支持浏览'); e.target.value = ''; return }
     const filesList = Array.from(e.target.files || [])
     await uploadFiles(filesList)
   }
 
   const handleDeleteSelected = async () => {
+    if (outsideBase) { toast.warning('已离开面板根目录，此区域仅支持浏览'); return }
     if (selectedFiles.size === 0) {
       toast.warning('请先选择要删除的文件')
       return
@@ -289,6 +311,7 @@ function Files({ toast, confirm }) {
   }
 
   const handleRename = (file) => {
+    if (outsideBase) { toast.warning('已离开面板根目录，此区域仅支持浏览'); return }
     setRenamingFile(file)
     setNewFileName(file.name)
   }
@@ -331,6 +354,7 @@ function Files({ toast, confirm }) {
   }
 
   const handleMove = (file) => {
+    if (outsideBase) { toast.warning('已离开面板根目录，此区域仅支持浏览'); return }
     setMovingFile(file)
   }
 
@@ -366,6 +390,7 @@ function Files({ toast, confirm }) {
   }
 
   const openCreateModal = (type) => {
+    if (outsideBase) { toast.warning('已离开面板根目录，此区域仅支持浏览'); return }
     setCreateType(type)
     setCreateName(type === 'directory' ? '' : '新建文件.txt')
     setShowCreateModal(true)
@@ -392,6 +417,7 @@ function Files({ toast, confirm }) {
   }
 
   const handleCompress = async () => {
+    if (outsideBase) { toast.warning('已离开面板根目录，此区域仅支持浏览'); return }
     if (selectedFiles.size === 0) {
       toast.warning('请先选择要压缩的文件')
       return
@@ -464,6 +490,15 @@ function Files({ toast, confirm }) {
   }
 
   const goToParent = () => {
+    // 后端返回的可导航父路径：面板根内为 '/x/y'，根外为 'C:/x' 等绝对路径
+    if (parentPath !== null) {
+      if (outsideBase || /^[a-zA-Z]:/.test(parentPath)) {
+        setFsPath(parentPath)
+      } else {
+        navigate(`/files${parentPath === '/' ? '' : parentPath}`, { state: location.state })
+      }
+      return
+    }
     const parts = currentPath.split('/').filter(p => p)
     parts.pop()
     const newPath = parts.length === 0 ? '' : '/' + parts.join('/')
@@ -569,10 +604,11 @@ function Files({ toast, confirm }) {
           </div>
         )}
         
-        {currentPath !== '/' && (
+        {(parentPath !== null) && (
           <div className="file-item" onClick={goToParent}>
             <Folder size={20} color="hsl(208, 40%, 35%)" />
             <span className="file-name">..</span>
+            {outsideBase && <span className="file-size">{currentPath}</span>}
           </div>
         )}
 

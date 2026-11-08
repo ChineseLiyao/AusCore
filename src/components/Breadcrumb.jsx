@@ -77,7 +77,11 @@ function Breadcrumb() {
             {isLast ? (
               <span className="breadcrumb-current">{crumb.label}</span>
             ) : (
-              <button className="breadcrumb-link" onClick={() => navigate(crumb.path)}>
+              <button
+                className="breadcrumb-link"
+                onMouseEnter={() => { if (crumb.path.startsWith('/files')) import('../pages/Files') }}
+                onClick={() => navigate(crumb.path)}
+              >
                 {crumb.label}
               </button>
             )}
