@@ -41,12 +41,9 @@ function Dashboard({ metrics, error }) {
           history={metrics.network.history}
         />
       </div>
-      <div className="dashboard-footer">
-        <img 
-          src="./logo.png" 
-          alt="Logo" 
-          className="dashboard-logo"
-        />
+      {/* Logo 水印背景：置于内容层之下，不拦截鼠标，不与卡片冲突 */}
+      <div className="dashboard-logo-bg" aria-hidden="true">
+        <img src="./logo.png" alt="" />
       </div>
     </div>
   )

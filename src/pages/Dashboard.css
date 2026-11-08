@@ -1,6 +1,35 @@
 .dashboard-content {
+  position: relative;
   padding: 24px;
   width: 100%;
+  min-height: 100%;
+  overflow: hidden;
+}
+
+/* Logo 水印背景层：铺满内容区居中，极低透明度，不参与交互 */
+.dashboard-logo-bg {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.dashboard-logo-bg img {
+  max-width: 85%;
+  max-height: 70%;
+  object-fit: contain;
+  opacity: 0.05;
+  filter: grayscale(0.4);
+  user-select: none;
+}
+
+.error-banner,
+.metrics-grid {
+  position: relative;
+  z-index: 1;
 }
 
 .error-banner {
@@ -19,33 +48,14 @@
   max-width: 1400px;
 }
 
-.dashboard-footer {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  margin-top: 40px;
-  padding: 20px;
-}
-
-.dashboard-logo {
-  max-width: 724px;
-  width: 100%;
-  height: auto;
-  opacity: 0.8;
-  transition: opacity 0.3s;
-}
-
-.dashboard-logo:hover {
-  opacity: 1;
-}
-
 @media (max-width: 768px) {
-  .dashboard-logo {
-    max-width: 90%;
-  }
-
   .dashboard-content {
     padding: 16px;
+  }
+
+  .dashboard-logo-bg img {
+    max-width: 95%;
+    opacity: 0.04;
   }
 
   .metrics-grid {
