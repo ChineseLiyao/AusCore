@@ -44,6 +44,7 @@ function ProjectDetail({ toast }) {
   })
   const [envWarnings, setEnvWarnings] = useState([])
   const [showJavaModal, setShowJavaModal] = useState(false)
+  const [customJavaPath, setCustomJavaPath] = useState('')
   const [installedJavas, setInstalledJavas] = useState([])
   const [loadingJava, setLoadingJava] = useState(false)
   const [showJavaHint, setShowJavaHint] = useState(false)
@@ -664,7 +665,7 @@ function ProjectDetail({ toast }) {
       </div>
 
       {showCoreModal && (
-        <div className="modal-overlay" onClick={() => setShowCoreModal(false)}>
+        <div className="modal-overlay">
           <div className="modal-content core-modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h2>选择服务器核心</h2>
@@ -763,7 +764,7 @@ function ProjectDetail({ toast }) {
       )}
 
       {showCommandModal && (
-        <div className="modal-overlay" onClick={() => setShowCommandModal(false)}>
+        <div className="modal-overlay">
           <div className="modal-content command-modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h2>启动命令生成</h2>
@@ -864,7 +865,7 @@ function ProjectDetail({ toast }) {
       )}
 
       {showPluginsModal && (
-        <div className="modal-overlay" onClick={() => setShowPluginsModal(false)}>
+        <div className="modal-overlay">
           <div className="modal-content plugins-modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h2>插件管理 (仅支持Java版服务器)</h2>
@@ -1002,7 +1003,7 @@ function ProjectDetail({ toast }) {
       )}
 
       {showSettings && (
-        <div className="modal-overlay" onClick={() => setShowSettings(false)}>
+        <div className="modal-overlay">
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h2>项目设置</h2>
@@ -1142,7 +1143,7 @@ function ProjectDetail({ toast }) {
       )}
 
       {showJavaModal && (
-        <div className="modal-overlay" onClick={() => setShowJavaModal(false)}>
+        <div className="modal-overlay">
           <div className="modal-content core-modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h2>Java 环境管理</h2>
@@ -1156,9 +1157,49 @@ function ProjectDetail({ toast }) {
               ) : (
                 <>
                   <div className="plugins-section">
-                    <h3>已安装的 Java</h3>
+                    <h3>手动指定 Java 路径</h3>
+                    <p className="empty-hint" style={{ marginTop: 0 }}>
+                      未检测到 Java 时，可填写本机已安装 Java 的完整路径（bin/java 可执行文件）
+                    </p>
+                    <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+                      <input
+                        type="text"
+                        value={customJavaPath}
+                        onChange={(e) => setCustomJavaPath(e.target.value)}
+                        placeholder="例如: /usr/lib/jvm/java-17/bin/java 或 C:\Program Files\Java\jdk-17\bin\java.exe"
+                        style={{
+                          flex: 1,
+                          padding: '8px 10px',
+                          border: '1px solid hsl(272, 15%, 88%)',
+                          borderRadius: 6,
+                          fontSize: 13,
+                          fontFamily: 'monospace',
+                          minWidth: 0
+                        }}
+                      />
+                      <button
+                        className="btn-download-version"
+                        disabled={!customJavaPath.trim()}
+                        onClick={() => handleSelectJava(customJavaPath.trim())}
+                      >
+                        使用
+                      </button>
+                    </div>
+                    {project.javaPath && (
+                      <div style={{ marginBottom: 12 }}>
+                        <p style={{ margin: '0 0 6px', fontSize: 12, color: 'hsl(272, 15%, 50%)' }}>
+                          当前：{project.javaPath}
+                        </p>
+                        <button className="btn-download-version" onClick={() => handleSelectJava('')}>
+                          恢复系统默认
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                  <div className="plugins-section">
+                    <h3>自动检测到的 Java</h3>
                     {installedJavas.length === 0 ? (
-                      <p className="empty-hint">未检测到 Java 环境</p>
+                      <p className="empty-hint">未检测到 Java 环境，请使用上方手动指定，或通过「安装 Java」下载</p>
                     ) : (
                       <div className="versions-list">
                         {installedJavas.map((j, i) => (
@@ -1187,7 +1228,7 @@ function ProjectDetail({ toast }) {
       )}
 
       {showDockerMirrorModal && (
-        <div className="modal-overlay" onClick={() => setShowDockerMirrorModal(false)}>
+        <div className="modal-overlay">
           <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '500px' }}>
             <div className="modal-header">
               <h2>Docker 镜像源配置</h2>
@@ -1240,7 +1281,7 @@ function ProjectDetail({ toast }) {
       )}
 
       {showJavaHint && (
-        <div className="modal-overlay" onClick={() => setShowJavaHint(false)}>
+        <div className="modal-overlay">
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h2>启动命令提示</h2>

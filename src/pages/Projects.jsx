@@ -304,7 +304,7 @@ function Projects({ toast, confirm }) {
       </div>
 
       {showCreateModal && (
-        <div className="modal-overlay" onClick={() => setShowCreateModal(false)}>
+        <div className="modal-overlay">
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h2>创建新项目</h2>

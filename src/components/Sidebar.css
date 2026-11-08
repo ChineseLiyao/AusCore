@@ -430,3 +430,94 @@
   background: hsl(354, 88%, 96%);
   color: hsl(354, 88%, 45%);
 }
+
+/* ---- 移动端：系统更新弹窗（底部抽屉式，触控优化） ---- */
+@media (max-width: 640px) {
+  .update-modal-overlay {
+    align-items: flex-end;
+    animation: updateOverlayIn 0.2s ease-out;
+  }
+
+  .update-modal-overlay .modal-content {
+    width: 100%;
+    max-width: 100%;
+    max-height: 85vh;
+    border-radius: 16px 16px 0 0;
+    animation: updateSheetIn 0.25s cubic-bezier(0.32, 0.72, 0, 1);
+    padding-bottom: env(safe-area-inset-bottom, 0);
+  }
+
+  /* 顶部拖拽指示条 */
+  .update-modal-overlay .modal-header {
+    position: relative;
+    padding: 20px 16px 14px;
+    justify-content: center;
+  }
+
+  .update-modal-overlay .modal-header::before {
+    content: '';
+    position: absolute;
+    top: 8px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 36px;
+    height: 4px;
+    border-radius: 2px;
+    background: hsl(272, 15%, 88%);
+  }
+
+  .update-modal-overlay .modal-header h2 {
+    font-size: 17px;
+  }
+
+  .update-modal-overlay .btn-close-modal {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(calc(-50% - 3px));
+    padding: 10px;
+  }
+
+  .update-modal-overlay .modal-body {
+    padding: 12px 16px 16px;
+  }
+
+  .update-modal-overlay .update-row {
+    padding: 12px 14px;
+  }
+
+  .update-modal-overlay .update-value {
+    font-size: 13px;
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+  }
+
+  .update-modal-overlay .update-status {
+    font-size: 14px;
+  }
+
+  /* 操作按钮：大触控目标，横向铺满 */
+  .update-modal-overlay .settings-actions {
+    flex-direction: column-reverse;
+    gap: 10px;
+    margin-top: 16px;
+  }
+
+  .update-modal-overlay .btn-cancel,
+  .update-modal-overlay .btn-save {
+    width: 100%;
+    justify-content: center;
+    padding: 14px 16px;
+    font-size: 15px;
+    border-radius: 10px;
+  }
+}
+
+@keyframes updateSheetIn {
+  from { transform: translateY(60%); opacity: 0.6; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes updateOverlayIn {
+  from { background: rgba(0, 0, 0, 0); }
+  to { background: rgba(0, 0, 0, 0.5); }
+}

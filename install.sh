@@ -68,9 +68,12 @@ install_nodejs() {
     fi
     
     print_info "安装 Node.js 20..."
-    
+
     case $OS in
         ubuntu|debian)
+            # 全新 Debian 最小安装可能没有 curl / ca-certificates，需先安装
+            apt-get update -y || apt-get update || true
+            apt-get install -y curl ca-certificates gnupg
             curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
             apt-get install -y nodejs
             ;;
@@ -119,10 +122,10 @@ install_git() {    if command -v git &> /dev/null; then
     case $OS in
         ubuntu|debian)
             apt-get update
-            apt-get install -y git
+            apt-get install -y git curl ca-certificates
             ;;
         centos|rhel|fedora)
-            yum install -y git
+            if command -v dnf &> /dev/null; then dnf install -y git; else yum install -y git; fi
             ;;
         macos)
             brew install git
@@ -213,11 +216,19 @@ install_build_tools() {
 
     case $OS in
         ubuntu|debian)
-            apt-get update -y
-            apt-get install -y build-essential python3
+            apt-get update -y || apt-get update || true
+            # build-essential 提供 make / gcc / g++；bcrypt、node-pty 等原生模块编译依赖它们与 python3
+            apt-get install -y build-essential python3 || {
+                print_warning "build-essential 安装失败，尝试单独安装 make / g++ / python3..."
+                apt-get install -y make g++ python3 || print_warning "编译工具安装失败，原生模块（bcrypt/node-pty）可能编译失败"
+            }
             ;;
         centos|rhel|fedora)
-            yum -y groupinstall "Development Tools" || yum -y install gcc gcc-c++ make python3
+            if command -v dnf &> /dev/null; then
+                dnf -y groupinstall "Development Tools" || dnf -y install gcc gcc-c++ make python3
+            else
+                yum -y groupinstall "Development Tools" || yum -y install gcc gcc-c++ make python3
+            fi
             ;;
         macos)
             if ! xcode-select -p &> /dev/null; then
@@ -265,15 +276,29 @@ install_dependencies() {
     print_success "依赖安装完成"
 }
 
+# 检查端口是否被占用（兼容无 ss / netstat 的极简系统，回退到 node 探测）
+port_busy() {
+    local p="$1"
+    if command -v ss &> /dev/null; then
+        ss -tln 2>/dev/null | grep -q ":$p[[:space:]]" && return 0
+    fi
+    if command -v netstat &> /dev/null; then
+        netstat -tln 2>/dev/null | grep -q ":$p[[:space:]]" && return 0
+    fi
+    # 最后回退：用 node 直接尝试绑定端口
+    if command -v node &> /dev/null; then
+        ! node -e "require('net').createServer().once('error',()=>process.exit(1)).once('listening',function(){this.close(()=>process.exit(0))}).listen($p,'0.0.0.0')"
+        return $?
+    fi
+    return 1
+}
+
 # 挑选一个空闲端口
 pick_free_port() {
     local p
     while :; do
         p=$(( RANDOM % 40000 + 20000 ))
-        if ss -tln 2>/dev/null | grep -q ":$p[[:space:]]"; then
-            continue
-        fi
-        if netstat -tln 2>/dev/null | grep -q ":$p[[:space:]]"; then
+        if port_busy "$p"; then
             continue
         fi
         echo "$p"
@@ -309,7 +334,7 @@ resolve_deploy_config() {
     fi
 
     # 校验端口是否被占用，被占用则自动更换
-    if ss -tln 2>/dev/null | grep -q ":$AUSCORE_DEPLOY_PORT[[:space:]]" || netstat -tln 2>/dev/null | grep -q ":$AUSCORE_DEPLOY_PORT[[:space:]]"; then
+    if port_busy "$AUSCORE_DEPLOY_PORT"; then
         if [ -n "$AUSCORE_PORT" ]; then
             print_warning "AUSCORE_PORT=$AUSCORE_PORT 已被占用，自动更换端口"
         else

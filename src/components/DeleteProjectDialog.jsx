@@ -10,7 +10,7 @@ function DeleteProjectDialog({ projectName, onConfirm, onCancel }) {
   }
 
   return (
-    <div className="modal-overlay" onClick={onCancel}>
+    <div className="modal-overlay">
       <div className="delete-dialog" onClick={(e) => e.stopPropagation()}>
         <div className="delete-dialog-header">
           <AlertTriangle size={24} color="hsl(0, 84%, 60%)" />

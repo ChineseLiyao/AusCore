@@ -526,17 +526,40 @@ app.get('/api/metrics', async (req, res) => {
   }
 })
 
+let activePort = PORT
 httpServer.on('error', (err) => {
   if (err.code === 'EADDRINUSE') {
-    console.error(`[ERROR] 端口 ${PORT} 已被占用，请删除 ${CONFIG_FILE} 后重启，或设置环境变量 PORT 指定端口`)
+    // 未显式指定端口时（如手动部署多实例），自动更换空闲端口重试，而不是直接退出
+    if (!process.env.PORT) {
+      console.warn(`[WARN] 端口 ${activePort} 已被占用（可能有其他 AusCore 实例在运行），自动更换空闲端口`)
+      ;(async () => {
+        for (let i = 0; i < 300; i++) {
+          const p = 20000 + Math.floor(Math.random() * 40000)
+          if (await isPortFree(p)) {
+            activePort = p
+            // 仅当配置文件未指定端口时持久化，避免覆盖 install.sh 写入的固定端口
+            if (!deployConfig.port) {
+              saveDeployConfig({ port: p, secretPath: deployConfig.secretPath || '' })
+            }
+            deployConfig.port = p
+            httpServer.listen(p)
+            return
+          }
+        }
+        console.error('[ERROR] 未找到空闲端口，请手动设置环境变量 PORT 后重启')
+        process.exit(1)
+      })()
+      return
+    }
+    console.error(`[ERROR] 端口 ${activePort} 已被占用，请删除 ${CONFIG_FILE} 后重启，或设置环境变量 PORT 指定端口`)
     process.exit(1)
   }
   throw err
 })
 
-httpServer.listen(PORT, () => {
-  console.log(`AusCore API server running on http://localhost:${PORT}${SECRET_PREFIX}`)
-  console.log(`WebSocket server running on ws://localhost:${PORT}${SECRET_PREFIX}`)
+httpServer.listen(activePort, () => {
+  console.log(`AusCore API server running on http://localhost:${activePort}${SECRET_PREFIX}`)
+  console.log(`WebSocket server running on ws://localhost:${activePort}${SECRET_PREFIX}`)
 })
 
 // 服务器终端进程
@@ -2077,6 +2100,35 @@ async function detectInstalledJavas() {
     }
   } catch { /* skip */ }
 
+  // 扫描常见 Java 安装目录（未配置 PATH 或未通过 AusCore 下载的 Java）
+  const commonDirs = isWindows
+    ? [
+        'C:\\Program Files\\Java',
+        'C:\\Program Files\\Eclipse Adoptium',
+        'C:\\Program Files\\Microsoft',
+        'C:\\Program Files\\Zulu',
+        'C:\\Program Files (x86)\\Java'
+      ]
+    : ['/usr/lib/jvm', '/opt/java']
+  const javaExeName = isWindows ? 'java.exe' : 'java'
+  for (const dir of commonDirs) {
+    try {
+      const entries = await fs.promises.readdir(dir, { withFileTypes: true })
+      for (const entry of entries) {
+        if (!entry.isDirectory()) continue
+        const binPath = path.join(dir, entry.name, 'bin', javaExeName)
+        try {
+          await fs.promises.access(binPath)
+          const versionMatch = entry.name.match(/(?:jdk|java)-?(\d+)/)
+          const ver = versionMatch ? versionMatch[1] : entry.name
+          if (!javas.some(j => j.path === `"${binPath}"`)) {
+            javas.push({ version: ver, path: `"${binPath}"`, source: 'system', label: `Java ${ver} (${entry.name})` })
+          }
+        } catch { /* 该目录下无 java 可执行文件 */ }
+      }
+    } catch { /* 目录不存在 */ }
+  }
+
   return javas
 }
 
@@ -2412,6 +2464,43 @@ app.get('/api/downloads', (req, res) => {
   res.json({ tasks })
 })
 
+// ---- PaperMC 下载（v2 API 已停用，优先使用 fill.papermc.io v3，失败时回退 v2）----
+async function getPaperBuilds(version) {
+  try {
+    const builds = await httpsGet(`https://fill.papermc.io/v3/projects/paper/versions/${version}/builds`)
+    if (Array.isArray(builds) && builds.length > 0) {
+      return builds
+        .map(b => ({
+          build: b.id,
+          time: b.time,
+          channel: b.channel,
+          url: (b.downloads && b.downloads['server:default'] && b.downloads['server:default'].url) || null
+        }))
+        .sort((a, b) => a.build - b.build)
+    }
+  } catch { /* 回退 v2 */ }
+  const data = await httpsGet(`https://api.papermc.io/v2/projects/paper/versions/${version}/builds`)
+  return (data.builds || [])
+    .map(b => ({
+      build: b.build,
+      time: b.time,
+      channel: b.channel,
+      url: `https://api.papermc.io/v2/projects/paper/versions/${version}/builds/${b.build}/downloads/${b.downloads.application.name}`
+    }))
+    .sort((a, b) => a.build - b.build)
+}
+
+async function getPaperVersions() {
+  try {
+    const data = await httpsGet('https://fill.papermc.io/v3/projects/paper')
+    if (Array.isArray(data.versions) && data.versions.length > 0) {
+      return data.versions
+    }
+  } catch { /* 回退 v2 */ }
+  const data = await httpsGet('https://api.papermc.io/v2/projects/paper')
+  return data.versions || []
+}
+
 // Minecraft 核心下载 API
 app.post('/api/minecraft/download-core', async (req, res) => {
   try {
@@ -2445,13 +2534,10 @@ app.post('/api/minecraft/download-core', async (req, res) => {
         let downloadUrl = null
 
         if (coreType === 'paper') {
-          const buildsUrl = `https://api.papermc.io/v2/projects/paper/versions/${version}/builds`
-          const buildsData = await httpsGet(buildsUrl)
-          if (buildsData.builds && buildsData.builds.length > 0) {
-            const latestBuild = buildsData.builds[buildsData.builds.length - 1]
-            const buildNumber = latestBuild.build
-            const jarName = latestBuild.downloads.application.name
-            downloadUrl = `https://api.papermc.io/v2/projects/paper/versions/${version}/builds/${buildNumber}/downloads/${jarName}`
+          const builds = await getPaperBuilds(version)
+          if (builds.length > 0) {
+            const latestBuild = builds[builds.length - 1]
+            downloadUrl = latestBuild.url
           }
         } else if (coreType === 'purpur') {
           const buildsUrl = `https://api.purpurmc.org/v2/purpur/${version}`
@@ -2495,8 +2581,7 @@ app.get('/api/minecraft/core-versions/:coreType', async (req, res) => {
     let versions = []
 
     if (coreType === 'paper') {
-      const data = await httpsGet('https://api.papermc.io/v2/projects/paper')
-      versions = data.versions || []
+      versions = await getPaperVersions()
     } else if (coreType === 'purpur') {
       const data = await httpsGet('https://api.purpurmc.org/v2/purpur')
       versions = data.versions || []
@@ -2516,10 +2601,10 @@ app.get('/api/minecraft/core-builds/:coreType/:version', async (req, res) => {
     let builds = []
 
     if (coreType === 'paper') {
-      const data = await httpsGet(`https://api.papermc.io/v2/projects/paper/versions/${version}/builds`)
-      builds = data.builds.map(b => ({
+      const paperBuilds = await getPaperBuilds(version)
+      builds = paperBuilds.map(b => ({
         build: b.build,
-        time: new Date(b.time).toLocaleString('zh-CN'),
+        time: b.time ? new Date(b.time).toLocaleString('zh-CN') : '',
         channel: b.channel
       })).reverse()
     } else if (coreType === 'purpur') {
@@ -2565,11 +2650,10 @@ app.post('/api/minecraft/download-core-build', async (req, res) => {
         let downloadUrl = null
 
         if (coreType === 'paper') {
-          const buildsData = await httpsGet(`https://api.papermc.io/v2/projects/paper/versions/${version}/builds`)
-          const build = buildsData.builds.find(b => b.build === parseInt(buildNumber))
-          if (build) {
-            const jarName = build.downloads.application.name
-            downloadUrl = `https://api.papermc.io/v2/projects/paper/versions/${version}/builds/${buildNumber}/downloads/${jarName}`
+          const builds = await getPaperBuilds(version)
+          const target = builds.find(b => b.build === parseInt(buildNumber, 10))
+          if (target) {
+            downloadUrl = target.url
           }
         } else if (coreType === 'purpur') {
           downloadUrl = `https://api.purpurmc.org/v2/purpur/${version}/${buildNumber}/download`
@@ -3093,6 +3177,24 @@ app.get('/', (req, res) => serveIndexHtml(res))
 app.get('*', (req, res) => {
   if (req.path.startsWith('/api')) {
     return res.status(404).json({ error: 'Not found' })
+  }
+  // 前端使用相对 base（./），在深层路由（如 /{prefix}/projects/xxx）刷新时，
+  // 浏览器会把静态资源请求到「当前路径/assets/xxx」，serveStatic 无法命中，
+  // 若直接回退 index.html 会导致 MIME 错误 → 白屏。此处从请求路径中截取
+  // 最后一段 /assets/ 并映射到 dist/assets 下对应文件。
+  const idx = req.path.lastIndexOf('/assets/')
+  if (idx !== -1) {
+    const rel = req.path.slice(idx + '/assets/'.length)
+    if (rel && !rel.includes('..')) {
+      const file = path.join(DIST_DIR, 'assets', rel)
+      try {
+        const stat = fs.statSync(file)
+        if (stat.isFile()) {
+          return res.sendFile(file)
+        }
+      } catch { /* fallthrough */ }
+      return res.status(404).send('Not found')
+    }
   }
   serveIndexHtml(res)
 })

@@ -205,7 +205,7 @@
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   font-size: 13px;
   color: hsl(272, 15%, 20%);
-  animation: balloonIn 0.3s ease-out, balloonOut 0.4s ease-in 3.5s forwards;
+  animation: balloonIn 0.3s ease-out, balloonOut 0.4s ease-in 2.1s forwards;
   white-space: nowrap;
 }
 

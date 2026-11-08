@@ -3,7 +3,7 @@ import './ConfirmDialog.css'
 
 function ConfirmDialog({ message, onConfirm, onCancel }) {
   return (
-    <div className="confirm-overlay" onClick={onCancel}>
+    <div className="confirm-overlay">
       <div className="confirm-dialog" onClick={(e) => e.stopPropagation()}>
         <div className="confirm-icon">
           <AlertTriangle size={48} />

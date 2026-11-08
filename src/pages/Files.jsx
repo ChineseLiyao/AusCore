@@ -632,7 +632,7 @@ function Files({ toast, confirm }) {
 
       {/* 移动文件模态框 */}
       {movingFile && (
-        <div className="modal-overlay" onClick={() => setMovingFile(null)}>
+        <div className="modal-overlay">
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h2>移动 {movingFile.name}</h2>

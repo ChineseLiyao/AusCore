@@ -39,6 +39,10 @@ function DownloadManager() {
   const prevTasksRef = useRef(new Map())
   const pollRef = useRef(null)
   const fetchingRef = useRef(false)
+  // 防止全部完成后每 2s 的轮询把已收起的面板重新弹出
+  const settledHiddenRef = useRef(false)
+  const fadeTimerRef = useRef(null)
+  const hideTimerRef = useRef(null)
 
   useEffect(() => {
     const poll = async () => {
@@ -67,14 +71,17 @@ function DownloadManager() {
           prevTasksRef.current = newMap
 
           const hasActive = newTasks.some(t => t.status === 'downloading')
-          if (newTasks.length > 0) {
+          if (hasActive) {
+            settledHiddenRef.current = false
+            clearTimeout(fadeTimerRef.current)
+            clearTimeout(hideTimerRef.current)
             setVisible(true)
             setFadeOut(false)
-          }
-          if (!hasActive && newTasks.length > 0 && newTasks.every(t => t.status === 'done' || t.status === 'error')) {
-            // 全部完成�?秒后渐隐
-            setTimeout(() => setFadeOut(true), 3000)
-            setTimeout(() => { setVisible(false); setFadeOut(false); setExpanded(false) }, 4000)
+          } else if (newTasks.length > 0 && newTasks.every(t => t.status === 'done' || t.status === 'error') && !settledHiddenRef.current) {
+            // 全部完成后 1.5s 开始渐隐，2.5s 自动关闭
+            settledHiddenRef.current = true
+            fadeTimerRef.current = setTimeout(() => setFadeOut(true), 1500)
+            hideTimerRef.current = setTimeout(() => { setVisible(false); setFadeOut(false); setExpanded(false) }, 2500)
           }
         }
       } catch { /* ignore */ } finally {
@@ -83,15 +90,19 @@ function DownloadManager() {
     }
 
     pollRef.current = setInterval(poll, 2000) // 改成 2 秒
-    return () => clearInterval(pollRef.current)
+    return () => {
+      clearInterval(pollRef.current)
+      clearTimeout(fadeTimerRef.current)
+      clearTimeout(hideTimerRef.current)
+    }
   }, [])
 
-  // 清理气球通知
+  // 气球通知 2.5s 自动收回
   useEffect(() => {
     if (balloons.length === 0) return
     const timer = setTimeout(() => {
-      setBalloons(b => b.filter(bl => Date.now() - bl.ts < 4000))
-    }, 4500)
+      setBalloons(b => b.filter(bl => Date.now() - bl.ts < 2500))
+    }, 2500)
     return () => clearTimeout(timer)
   }, [balloons])
 

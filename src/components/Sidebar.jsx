@@ -203,7 +203,7 @@ function Sidebar({ onLogout, toast, open, onClose }) {
       </div>
 
       {showUpdateModal && (
-        <div className="modal-overlay" onClick={() => setShowUpdateModal(false)}>
+        <div className="modal-overlay update-modal-overlay">
           <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '440px' }}>
             <div className="modal-header">
               <h2>系统更新</h2>
@@ -251,7 +251,7 @@ function Sidebar({ onLogout, toast, open, onClose }) {
       )}
 
       {showSettings && (
-        <div className="modal-overlay" onClick={() => setShowSettings(false)}>
+        <div className="modal-overlay">
           <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '440px' }}>
             <div className="modal-header">
               <h2>服务器设置</h2>
