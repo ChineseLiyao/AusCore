@@ -158,7 +158,7 @@ function Sidebar({ onLogout, toast, open, onClose }) {
       <div className={`sidebar ${open ? 'open' : ''}`}>
         <div className="sidebar-header">
           <h2 className="sidebar-title">AusCore</h2>
-          <p className="sidebar-version">Alpha v1.0.1</p>
+          <p className="sidebar-version">Alpha v{updateInfo?.installed?.version || '1.0.1'}</p>
         </div>
 
         <nav className="sidebar-nav">
