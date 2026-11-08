@@ -36,6 +36,7 @@ function Sidebar({ onLogout, toast, open, onClose }) {
   const [showSettings, setShowSettings] = useState(false)
   const [showUpdateModal, setShowUpdateModal] = useState(false)
   const [updateInfo, setUpdateInfo] = useState(null)
+  const [selectedBranch, setSelectedBranch] = useState(null)
   const [checkingUpdate, setCheckingUpdate] = useState(false)
   const [updating, setUpdating] = useState(false)
   const checkIntervalRef = useRef(null)
@@ -55,11 +56,12 @@ function Sidebar({ onLogout, toast, open, onClose }) {
       .catch(() => {})
   }, [])
 
-  const checkUpdate = async (silent = true) => {
+  const checkUpdate = async (silent = true, branch = null) => {
     if (checkingUpdate) return
     setCheckingUpdate(true)
     try {
-      const res = await authFetch(`${API_BASE}/api/update/check`)
+      const qs = branch ? `?branch=${encodeURIComponent(branch)}` : ''
+      const res = await authFetch(`${API_BASE}/api/update/check${qs}`)
       if (res.ok) {
         const data = await res.json()
         setUpdateInfo(data)
@@ -76,6 +78,12 @@ function Sidebar({ onLogout, toast, open, onClose }) {
     return null
   }
 
+  // 切换目标分支：刷新该分支的最新版本检测
+  const handleBranchChange = async (branch) => {
+    setSelectedBranch(branch)
+    await checkUpdate(true, branch)
+  }
+
   // 启动时自动检测，之后每 30 分钟检测一次
   useEffect(() => {
     checkUpdate()
@@ -87,16 +95,21 @@ function Sidebar({ onLogout, toast, open, onClose }) {
   }, [])
 
   const handleApplyUpdate = async () => {
+    const branch = selectedBranch || updateInfo?.latest?.branch || null
     setUpdating(true)
     try {
-      const res = await authFetch(`${API_BASE}/api/update/apply`, { method: 'POST' })
+      const res = await authFetch(`${API_BASE}/api/update/apply`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(branch ? { branch } : {})
+      })
       const data = await res.json()
       if (!res.ok) {
         toast?.error(data.error || '更新失败')
         setUpdating(false)
         return
       }
-      toast?.success('更新已开始，服务将在完成后自动重启')
+      toast?.success(`更新已开始（分支 ${branch || 'main'}），服务将在完成后自动重启`)
       setShowUpdateModal(false)
 
       // 轮询等待更新完成（服务重启后本地版本与远程一致即完成）
@@ -104,8 +117,8 @@ function Sidebar({ onLogout, toast, open, onClose }) {
       const poll = async () => {
         tries++
         try {
-          const d = await checkUpdate(true)
-          if (d && d.installed?.commit && d.latest?.commit && d.installed.commit === d.latest.commit) {
+          const d = await checkUpdate(true, branch)
+          if (d && d.installed?.commit && d.latest?.commit && d.installed.commit === d.latest.commit && d.installed.branch === (branch || d.installed.branch)) {
             toast?.success('更新完成，正在刷新页面')
             window.location.reload()
             return
@@ -215,6 +228,25 @@ function Sidebar({ onLogout, toast, open, onClose }) {
               {updateInfo ? (
                 <div className="update-info">
                   <div className="update-row">
+                    <span className="update-label">当前分支</span>
+                    <span className="update-value">{updateInfo.installed.branch || 'main'}</span>
+                  </div>
+                  {Array.isArray(updateInfo.branches) && updateInfo.branches.length > 0 && (
+                    <div className="update-row">
+                      <span className="update-label">目标分支</span>
+                      <select
+                        className="update-branch-select"
+                        value={selectedBranch || updateInfo.latest.branch || updateInfo.installed.branch || 'main'}
+                        onChange={(e) => handleBranchChange(e.target.value)}
+                        disabled={updating || checkingUpdate}
+                      >
+                        {updateInfo.branches.map(b => (
+                          <option key={b} value={b}>{b}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                  <div className="update-row">
                     <span className="update-label">当前版本</span>
                     <span className="update-value">v{updateInfo.installed.version} ({updateInfo.installed.short || 'unknown'})</span>
                   </div>
@@ -241,7 +273,11 @@ function Sidebar({ onLogout, toast, open, onClose }) {
                 {updateInfo?.hasUpdate && !updating && (
                   <button className="btn-save" onClick={handleApplyUpdate}>
                     <DownloadCloud size={14} />
-                    <span>立即更新</span>
+                    <span>
+                      {(selectedBranch || updateInfo.latest.branch) !== updateInfo.installed.branch
+                        ? `切换到 ${selectedBranch || updateInfo.latest.branch} 并更新`
+                        : '立即更新'}
+                    </span>
                   </button>
                 )}
               </div>

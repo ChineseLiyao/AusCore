@@ -1,6 +1,31 @@
 import { Cpu, Monitor, HardDrive, Network } from 'lucide-react'
 import './MetricCard.css'
 
+// Catmull-Rom 平滑：把折线点转换为三次贝塞尔曲线路径
+function smoothPath(points) {
+  if (!points.length) return ''
+  if (points.length < 3) return `M${points.join(' L')}`
+  const d = [`M${points[0]}`]
+  for (let i = 0; i < points.length - 1; i++) {
+    const p0 = i > 0 ? parse(points[i - 1]) : parse(points[i])
+    const p1 = parse(points[i])
+    const p2 = parse(points[i + 1])
+    const p3 = i < points.length - 2 ? parse(points[i + 2]) : p2
+    // Catmull-Rom 控制点张力系数 / 6
+    const c1x = p1.x + (p2.x - p0.x) / 6
+    const c1y = p1.y + (p2.y - p0.y) / 6
+    const c2x = p2.x - (p3.x - p1.x) / 6
+    const c2y = p2.y - (p3.y - p1.y) / 6
+    d.push(`C${c1x},${c1y} ${c2x},${c2y} ${p2.x},${p2.y}`)
+  }
+  return d.join(' ')
+
+  function parse(str) {
+    const [x, y] = str.split(',').map(Number)
+    return { x, y }
+  }
+}
+
 function MetricCard({ title, value, subtitle, uploadValue, color, icon, history = [] }) {
   const getIcon = () => {
     switch (icon) {
@@ -27,14 +52,14 @@ function MetricCard({ title, value, subtitle, uploadValue, color, icon, history 
 
       return (
         <svg className="metric-chart" viewBox="0 0 200 60" preserveAspectRatio="none">
-          <polyline
-            points={history.map((h, i) => `${(i / (history.length - 1)) * 200},${60 - (((h.down || 0) - min) / range) * 60}`).join(' ')}
+          <path
+            d={smoothPath(history.map((h, i) => `${(i / (history.length - 1)) * 200},${60 - (((h.down || 0) - min) / range) * 60}`))}
             fill="none"
             stroke={color}
             strokeWidth="2"
           />
-          <polyline
-            points={history.map((h, i) => `${(i / (history.length - 1)) * 200},${60 - (((h.up || 0) - min) / range) * 60}`).join(' ')}
+          <path
+            d={smoothPath(history.map((h, i) => `${(i / (history.length - 1)) * 200},${60 - (((h.up || 0) - min) / range) * 60}`))}
             fill="none"
             stroke={color}
             strokeWidth="2"
@@ -57,8 +82,8 @@ function MetricCard({ title, value, subtitle, uploadValue, color, icon, history 
 
     return (
       <svg className="metric-chart" viewBox="0 0 200 60" preserveAspectRatio="none">
-        <polyline
-          points={validHistory.map((val, i) => `${(i / (validHistory.length - 1)) * 200},${60 - ((val - min) / range) * 60}`).join(' ')}
+        <path
+          d={smoothPath(validHistory.map((val, i) => `${(i / (validHistory.length - 1)) * 200},${60 - ((val - min) / range) * 60}`))}
           fill="none"
           stroke={color}
           strokeWidth="2"

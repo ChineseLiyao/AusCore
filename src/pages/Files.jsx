@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { Folder, File, ChevronRight, Edit, Trash2, X, Save, Upload, Download, Archive, FolderInput, Move, Edit2 } from 'lucide-react'
+import { Folder, File, ChevronRight, Edit, Trash2, X, Save, Upload, Download, Archive, FolderInput, Move, Edit2, FilePlus, FolderPlus } from 'lucide-react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import Editor from '@monaco-editor/react'
 import '../lib/monacoSetup'
@@ -25,6 +25,9 @@ function Files({ toast, confirm }) {
   const [renamingFile, setRenamingFile] = useState(null)
   const [newFileName, setNewFileName] = useState('')
   const [movingFile, setMovingFile] = useState(null)
+  const [showCreateModal, setShowCreateModal] = useState(false)
+  const [createName, setCreateName] = useState('')
+  const [createType, setCreateType] = useState('file')
 
   // 从路由路径获取当前目录路径
   const currentPath = params['*'] ? '/' + params['*'] : '/'
@@ -362,6 +365,32 @@ function Files({ toast, confirm }) {
     }
   }
 
+  const openCreateModal = (type) => {
+    setCreateType(type)
+    setCreateName(type === 'directory' ? '' : '新建文件.txt')
+    setShowCreateModal(true)
+  }
+
+  const handleCreate = async () => {
+    const name = createName.trim()
+    if (!name) return
+    try {
+      const res = await authFetch(`${API_BASE}/api/files/create`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: currentPath, name, type: createType })
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || '创建失败')
+      toast?.success(`${createType === 'directory' ? '文件夹' : '文件'}「${name}」创建成功`)
+      setShowCreateModal(false)
+      setCreateName('')
+      fetchFiles(currentPath)
+    } catch (err) {
+      toast?.error(err.message || '创建失败')
+    }
+  }
+
   const handleCompress = async () => {
     if (selectedFiles.size === 0) {
       toast.warning('请先选择要压缩的文件')
@@ -501,6 +530,14 @@ function Files({ toast, confirm }) {
             style={{ display: 'none' }}
             onChange={handleUpload}
           />
+          <button className="btn-toolbar" onClick={() => openCreateModal('file')} disabled={loading}>
+            <FilePlus size={16} />
+            <span>新建文件</span>
+          </button>
+          <button className="btn-toolbar" onClick={() => openCreateModal('directory')} disabled={loading}>
+            <FolderPlus size={16} />
+            <span>新建文件夹</span>
+          </button>
           <button className="btn-toolbar" onClick={() => fileInputRef.current?.click()} disabled={loading}>
             <Upload size={16} />
             <span>上传</span>

@@ -409,6 +409,23 @@
   text-align: right;
 }
 
+.update-branch-select {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 13px;
+  padding: 4px 8px;
+  border: 1px solid hsl(0, 0%, 85%);
+  border-radius: 6px;
+  background: white;
+  color: hsl(272, 15%, 20%);
+  cursor: pointer;
+  max-width: 60%;
+}
+
+.update-branch-select:focus {
+  outline: none;
+  border-color: hsl(208, 40%, 45%);
+}
+
 .update-status {
   margin: 0;
   font-size: 13px;

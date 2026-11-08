@@ -953,6 +953,58 @@ app.post('/api/files/rename', async (req, res) => {
   }
 })
 
+// 创建文件或文件夹
+app.post('/api/files/create', async (req, res) => {
+  try {
+    const { path: dirPath, name, type = 'file' } = req.body
+
+    if (!name) {
+      return res.status(400).json({ error: 'Name required' })
+    }
+
+    // 名称不能包含路径分隔符和非法字符
+    if (name.includes('/') || name.includes('\\') || name === '.' || name === '..') {
+      return res.status(400).json({ error: '文件名不能包含路径分隔符' })
+    }
+
+    const baseDir = dirPath && dirPath !== '/' ? dirPath : ''
+    const fullDir = path.join(BASE_PATH, baseDir)
+
+    if (!fullDir.startsWith(BASE_PATH)) {
+      return res.status(403).json({ error: 'Access denied' })
+    }
+
+    const fullPath = path.join(fullDir, name)
+    if (!fullPath.startsWith(BASE_PATH)) {
+      return res.status(403).json({ error: 'Access denied' })
+    }
+
+    // 检查是否已存在
+    try {
+      await fs.promises.access(fullPath)
+      return res.status(400).json({ error: '同名文件已存在' })
+    } catch {
+      // 不存在，可以创建
+    }
+
+    if (type === 'directory') {
+      await fs.promises.mkdir(fullPath)
+    } else {
+      // 确保父目录存在（recursively=false 即可，父目录是当前浏览目录）
+      await fs.promises.writeFile(fullPath, '', { flag: 'wx' })
+    }
+
+    res.json({ success: true, path: path.relative(BASE_PATH, fullPath) })
+  } catch (error) {
+    console.error('File create error:', error)
+    if (error.code === 'EPERM' || error.code === 'EACCES') {
+      res.status(423).json({ error: '没有权限在此目录创建文件' })
+    } else {
+      res.status(500).json({ error: error.message })
+    }
+  }
+})
+
 // 移动文件或文件夹
 app.post('/api/files/move', async (req, res) => {
   try {
@@ -3019,7 +3071,9 @@ const GIT_BRANCH = 'main'
 const GIT_TIMEOUT = 5000
 const UPDATE_CHECK_TTL = 60 * 1000
 let updateCheckCache = null
+let updateCheckCacheKey = ''
 let updateCheckTime = 0
+let updateBranchesCache = null
 
 const updateState = {
   status: 'idle', // idle | running | done | error
@@ -3066,24 +3120,51 @@ async function getRemoteCommit(branch) {
   throw new Error('all mirrors failed')
 }
 
+// 5s 超时 + 镜像回退地获取远程分支列表
+async function getRemoteBranches() {
+  const urls = [GIT_REPO, ...GIT_MIRRORS]
+  for (const url of urls) {
+    try {
+      const { stdout } = await Promise.race([
+        execAsync(`git ls-remote --heads ${url}`, { timeout: GIT_TIMEOUT }),
+        new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), GIT_TIMEOUT))
+      ])
+      const branches = stdout
+        .split('\n')
+        .map(l => l.trim())
+        .filter(Boolean)
+        .map(l => l.split('\t')[1].replace('refs/heads/', ''))
+      if (branches.length > 0) return branches
+    } catch { /* 尝试下一个镜像 */ }
+  }
+  return []
+}
+
 // 检查更新
 app.get('/api/update/check', async (req, res) => {
   try {
+    const branch = req.query.branch || null
     const now = Date.now()
-    if (updateCheckCache && (now - updateCheckTime) < UPDATE_CHECK_TTL) {
+
+    const installed = await getLocalVersion()
+    const targetBranch = branch || installed.branch || GIT_BRANCH
+
+    // 缓存按分支隔离，避免切换分支后拿到旧数据
+    const cacheKey = `${targetBranch}@${installed.commit}`
+    if (updateCheckCache && updateCheckCacheKey === cacheKey && (now - updateCheckTime) < UPDATE_CHECK_TTL) {
       return res.json(updateCheckCache)
     }
 
-    const installed = await getLocalVersion()
-    const latest = { commit: '', short: '', branch: GIT_BRANCH }
+    const latest = { commit: '', short: '', branch: targetBranch }
     let hasUpdate = false
     let error = null
+    let branches = updateBranchesCache
 
     if (!installed.commit) {
       error = '未检测到 Git 仓库'
     } else {
       try {
-        const remoteCommit = await getRemoteCommit(GIT_BRANCH)
+        const remoteCommit = await getRemoteCommit(targetBranch)
         latest.commit = remoteCommit
         latest.short = remoteCommit.slice(0, 7)
         hasUpdate = remoteCommit !== installed.commit
@@ -3092,7 +3173,16 @@ app.get('/api/update/check', async (req, res) => {
       }
     }
 
-    updateCheckCache = { installed, latest, hasUpdate, error, checkedAt: now }
+    // 后台刷新分支列表（失败时使用上次缓存）
+    if (!branches) {
+      getRemoteBranches()
+        .then(list => { if (list.length > 0) updateBranchesCache = list })
+        .catch(() => {})
+      branches = []
+    }
+
+    updateCheckCache = { installed, latest, hasUpdate, error, branches, checkedAt: now }
+    updateCheckCacheKey = cacheKey
     updateCheckTime = now
     res.json(updateCheckCache)
   } catch (error) {
@@ -3105,7 +3195,7 @@ app.get('/api/update/status', (req, res) => {
   res.json(updateState)
 })
 
-// 执行更新
+// 执行更新（支持指定分支：更新当前分支 / 切换到其他分支，均以远端为准硬重置，不会串版本）
 app.post('/api/update/apply', async (req, res) => {
   try {
     if (process.platform === 'win32') {
@@ -3113,6 +3203,16 @@ app.post('/api/update/apply', async (req, res) => {
     }
     if (updateState.status === 'running') {
       return res.status(400).json({ error: '更新正在进行中，请稍候' })
+    }
+
+    let branch = req.body?.branch || null
+    // 分支名安全校验：防止注入 shell 参数
+    if (branch && !/^[A-Za-z0-9][A-Za-z0-9._\-/]*$/.test(branch)) {
+      return res.status(400).json({ error: '分支名不合法' })
+    }
+    if (!branch) {
+      const installed = await getLocalVersion()
+      branch = installed.branch || GIT_BRANCH
     }
 
     const scriptPath = path.join(PROJECT_ROOT, 'update.sh')
@@ -3123,10 +3223,13 @@ app.post('/api/update/apply', async (req, res) => {
     const logFile = path.join(BASE_PATH, 'update.log')
 
     updateState.status = 'running'
-    updateState.message = '正在拉取代码并构建...'
+    updateState.message = branch
+      ? `正在拉取分支 ${branch} 并构建...`
+      : '正在拉取代码并构建...'
     updateState.startedAt = Date.now()
+    updateState.branch = branch
 
-    const child = spawn('bash', [scriptPath, GIT_BRANCH], {
+    const child = spawn('bash', [scriptPath, branch], {
       cwd: PROJECT_ROOT,
       detached: true,
       stdio: ['ignore', fs.openSync(logFile, 'a'), fs.openSync(logFile, 'a')]
@@ -3142,7 +3245,7 @@ app.post('/api/update/apply', async (req, res) => {
     })
     child.unref()
 
-    res.json({ success: true, message: '更新已开始，服务将在完成后自动重启' })
+    res.json({ success: true, branch, message: `更新已开始（分支 ${branch}），服务将在完成后自动重启` })
   } catch (error) {
     updateState.status = 'error'
     updateState.message = error.message
